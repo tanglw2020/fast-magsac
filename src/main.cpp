@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <mutex>
 #include <memory>
+#include <thread>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -23,12 +24,30 @@
 #include "types.h"
 #include "model.h"
 #include "estimators.h"
+#include "GCRANSAC.h"
+#include "preemption_sprt.h"
+#include "prosac_sampler.h"
+#include "progressive_napsac_sampler.h"
+
 
 enum SceneType { FundamentalMatrixScene, HomographyScene, EssentialMatrixScene };
 enum Dataset { kusvod2, extremeview, homogr, adelaidermf, multih, strecha };
 
+
+// A method applying gcransac for Homography estimation to one of the built-in scenes
+void gcransacHomographyFitting(
+	double ransac_confidence_, // The confidence required
+	std::string test_scene_, // The name of the current test scene
+	bool draw_results_, // A flag determining if the results should be visualized
+	double drawing_threshold_,
+	double inlier_outlier_threshold_,
+	const double spatial_coherence_weight_,
+	const size_t cell_number_in_neighborhood_graph_,
+	const int fps_,
+	const double minimum_inlier_ratio_for_sprt_=0.1);
+
 // A method applying MAGSAC for fundamental matrix estimation to one of the built-in scenes
-void testFundamentalMatrixFitting(
+void magsacFundamentalMatrixFitting(
 	double ransac_confidence_,
 	double maximum_threshold_,
 	std::string test_scene_,
@@ -36,7 +55,7 @@ void testFundamentalMatrixFitting(
 	double drawing_threshold_ = 2);
 
 // A method applying MAGSAC for essential matrix estimation to one of the built-in scenes
-void testEssentialMatrixFitting(
+void magsacEssentialMatrixFitting(
 	double ransac_confidence_,
 	double maximum_threshold_,
 	const std::string &test_scene_,
@@ -44,7 +63,7 @@ void testEssentialMatrixFitting(
 	double drawing_threshold_ = 2);
 
 // A method applying MAGSAC for homography estimation to one of the built-in scenes
-void testHomographyFitting(
+void magsacHomographyFitting(
 	double ransac_confidence_,
 	double maximum_threshold_,
 	std::string test_scene_,
@@ -165,11 +184,21 @@ void runTest(SceneType scene_type_, // The type of the fitting problem
 			
 			// Apply MAGSAC with maximum threshold set to a fairly high value
 			printf("\n2. Running MAGSAC with fairly high maximum threshold (%f px)\n", 50.0);
-			testHomographyFitting(ransac_confidence_,
+			magsacHomographyFitting(ransac_confidence_,
 				50.0, // The maximum sigma value allowed in MAGSAC
 				scene, // The scene type
 				true, // A flag to draw and show the results  
 				2.5); // The inlier threshold for visualization.
+			printf("\n3. Running gcransac threshold (%f px)\n", 50.0);
+			 gcransacHomographyFitting(
+				ransac_confidence_, // The confidence required
+				scene, // The name of the current test scene
+				true, // A flag determining if the results should be visualized
+				2.5,  
+				2.0,  // The used inlier-outlier threshold
+				0.975, // The weight of the spatial coherence term
+				8,  // The radius of the neighborhood ball
+				-1);
 		} else if (scene_type_ == SceneType::FundamentalMatrixScene)
 		{
 			// Apply the homography estimation method built into OpenCV
@@ -182,7 +211,7 @@ void runTest(SceneType scene_type_, // The type of the fitting problem
 			
 			// Apply MAGSAC with fairly high maximum threshold
 			printf("\n2. Running MAGSAC with fairly high maximum threshold (%f px)\n", 5.0);
-			testFundamentalMatrixFitting(ransac_confidence_, // The required confidence in the results
+			magsacFundamentalMatrixFitting(ransac_confidence_, // The required confidence in the results
 				5.0, // The maximum sigma value allowed in MAGSAC
 				scene, // The scene type
 				draw_results_, // A flag to draw and show the results 
@@ -199,7 +228,7 @@ void runTest(SceneType scene_type_, // The type of the fitting problem
 
 			// Apply MAGSAC with a reasonably set maximum threshold
 			printf("\n2. Running MAGSAC with reasonably set maximum threshold (%f px)\n", 5.0);
-			testEssentialMatrixFitting(ransac_confidence_, // The required confidence in the results
+			magsacEssentialMatrixFitting(ransac_confidence_, // The required confidence in the results
 				5.0, // The maximum sigma value allowed in MAGSAC
 				scene, // The scene type
 				true, // A flag to draw and show the results 
@@ -294,7 +323,7 @@ std::vector<std::string> getAvailableTestScenes(
 }
 
 // A method applying MAGSAC for essential matrix estimation to one of the built-in scenes
-void testEssentialMatrixFitting(
+void magsacEssentialMatrixFitting(
 	double ransac_confidence_,
 	double maximum_threshold_,
 	const std::string &test_scene_,
@@ -450,7 +479,7 @@ void testEssentialMatrixFitting(
 	image2.release();
 }
 
-void testFundamentalMatrixFitting(
+void magsacFundamentalMatrixFitting(
 	double ransac_confidence_,
 	double maximum_threshold_,
 	std::string test_scene_,
@@ -593,7 +622,7 @@ void testFundamentalMatrixFitting(
 	image2.release();
 }
 
-void testHomographyFitting(
+void magsacHomographyFitting(
 	double ransac_confidence_, // The confidence required
 	double maximum_threshold_, // The maximum threshold value
 	std::string test_scene_, // The name of the current test scene
@@ -1175,6 +1204,213 @@ void opencvEssentialMatrixFitting(
 		out_image.release();
 	}
 
+	// Clean up the memory occupied by the images
+	image1.release();
+	image2.release();
+}
+
+
+
+void gcransacHomographyFitting(
+	double ransac_confidence_, // The confidence required
+	std::string test_scene_, // The name of the current test scene
+	bool draw_results_, // A flag determining if the results should be visualized
+	double drawing_threshold_,
+	double inlier_outlier_threshold_,
+	const double spatial_coherence_weight_,
+	const size_t cell_number_in_neighborhood_graph_,
+	const int fps_,
+	const double minimum_inlier_ratio_for_sprt_) // An assumption about the minimum inlier ratio used for the SPRT test
+{
+	// Print the name of the current test scene
+	printf("\tProcessed scene = '%s'.\n", test_scene_.c_str());
+
+	// Load the images of the current test scene
+	cv::Mat image1 = cv::imread("data/homography/" + test_scene_ + "A.png");
+	cv::Mat image2 = cv::imread("data/homography/" + test_scene_ + "B.png");
+	if (image1.cols == 0 || image2.cols == 0) // If the images have not been loaded, try to load them as jpg files.
+	{
+		image1 = cv::imread("data/homography/" + test_scene_ + "A.jpg");
+		image2 = cv::imread("data/homography/" + test_scene_ + "B.jpg");
+	}
+
+	// If the images have not been loaded, return
+	if (image1.cols == 0 || image2.cols == 0)
+	{
+		fprintf(stderr, "A problem occured when loading the images for test scene '%s'\n", test_scene_.c_str());
+		return;
+	}
+
+	cv::Mat points; // The point correspondences, each is of format "x1 y1 x2 y2"
+	std::vector<int> ground_truth_labels; // The ground truth labeling provided in the dataset
+
+	// A function loading the points from files
+	readAnnotatedPoints("data/homography/" + test_scene_ + "_pts.txt", // The path where the reference labeling and the points are found
+		points, // All data points 
+		ground_truth_labels); // The reference labeling
+
+	// The number of points in the datasets
+	const size_t point_number = points.rows; // The number of points in the scene
+
+	if (point_number == 0) // If there are no points, return
+	{
+		fprintf(stderr, "A problem occured when loading the annotated points for test scene '%s'\n", test_scene_.c_str());
+		return;
+	}
+
+	magsac::utils::DefaultHomographyEstimator estimator; // The robust homography estimator class containing the function for the fitting and residual calculation
+	gcransac::Homography model; // The estimated model
+
+	// In this used datasets, the manually selected inliers are not all inliers but a subset of them.
+	// Therefore, the manually selected inliers are augmented as follows: 
+	// (i) First, the implied model is estimated from the manually selected inliers.
+	// (ii) Second, the inliers of the ground truth model are selected.
+	std::vector<int> refined_labels = ground_truth_labels;
+	refineManualLabeling<gcransac::Homography, magsac::utils::DefaultHomographyEstimator>(
+		points, // The data points
+		refined_labels, // The refined labeling
+		estimator, // The model estimator
+		2.0); // The used threshold in pixels
+
+	// Select the inliers from the labeling
+	std::vector<int> ground_truth_inliers = getSubsetFromLabeling(ground_truth_labels, 1),
+		refined_inliers = getSubsetFromLabeling(refined_labels, 1);
+	if (ground_truth_inliers.size() < refined_inliers.size())
+		ground_truth_inliers.swap(refined_inliers);
+	const size_t reference_inlier_number = ground_truth_inliers.size();
+
+	printf("\tEstimated model = 'homography'.\n");
+	printf("\tNumber of correspondences loaded = %d.\n", static_cast<int>(point_number));
+	printf("\tNumber of ground truth inliers = %d.\n", static_cast<int>(reference_inlier_number));
+	printf("\tTheoretical RANSAC iteration number at %.2f confidence = %d.\n", 
+		ransac_confidence_, static_cast<int>(log(1.0 - ransac_confidence_) / log(1.0 - pow(static_cast<double>(reference_inlier_number) / static_cast<double>(point_number), 4))));
+
+	// Initialize the neighborhood used in Graph-cut RANSAC and, perhaps,
+	// in the sampler if NAPSAC or Progressive-NAPSAC sampling is applied.
+	std::chrono::time_point<std::chrono::system_clock> start, end; // Variables for time measurement
+	start = std::chrono::system_clock::now(); // The starting time of the neighborhood calculation
+	gcransac::neighborhood::GridNeighborhoodGraph neighborhood(&points,
+		image1.cols / static_cast<double>(cell_number_in_neighborhood_graph_),
+		image1.rows / static_cast<double>(cell_number_in_neighborhood_graph_),
+		image2.cols / static_cast<double>(cell_number_in_neighborhood_graph_),
+		image2.rows / static_cast<double>(cell_number_in_neighborhood_graph_),
+		cell_number_in_neighborhood_graph_);
+	end = std::chrono::system_clock::now(); // The end time of the neighborhood calculation
+	std::chrono::duration<double> elapsed_seconds = end - start; // The elapsed time in seconds
+	printf("Neighborhood calculation time = %f secs\n", elapsed_seconds.count());
+
+	// Checking if the neighborhood graph is initialized successfully.
+	if (!neighborhood.isInitialized())
+	{
+		fprintf(stderr, "The neighborhood graph is not initialized successfully.\n");
+		return;
+	}
+
+	// Apply Graph-cut RANSAC
+	std::vector<int> inliers;
+
+	// Initializing SPRT test
+	gcransac::preemption::SPRTPreemptiveVerfication<gcransac::utils::DefaultHomographyEstimator> preemptive_verification(
+		points,
+		estimator,
+		minimum_inlier_ratio_for_sprt_);
+
+	gcransac::GCRANSAC<gcransac::utils::DefaultHomographyEstimator, 
+		gcransac::neighborhood::GridNeighborhoodGraph,
+		gcransac::MSACScoringFunction<gcransac::utils::DefaultHomographyEstimator>,
+		gcransac::preemption::SPRTPreemptiveVerfication<gcransac::utils::DefaultHomographyEstimator>> gcransac;
+	gcransac.setFPS(fps_); // Set the desired FPS (-1 means no limit)
+	gcransac.settings.threshold = inlier_outlier_threshold_; // The inlier-outlier threshold
+	gcransac.settings.spatial_coherence_weight = spatial_coherence_weight_; // The weight of the spatial coherence term
+	gcransac.settings.confidence = ransac_confidence_; // The required confidence in the results
+	gcransac.settings.max_local_optimization_number = 50; // The maximm number of local optimizations
+	gcransac.settings.max_iteration_number = 5000; // The maximum number of iterations
+	gcransac.settings.min_iteration_number = 50; // The minimum number of iterations
+	gcransac.settings.neighborhood_sphere_radius = cell_number_in_neighborhood_graph_; // The radius of the neighborhood ball
+	gcransac.settings.core_number = std::thread::hardware_concurrency(); // The number of parallel processes
+
+	// Initialize the samplers
+	// The main sampler is used inside the local optimization
+	gcransac::sampler::ProgressiveNapsacSampler main_sampler(&points,
+		{ 16, 8, 4, 2 },	// The layer of grids. The cells of the finest grid are of dimension 
+							// (source_image_width / 16) * (source_image_height / 16)  * (destination_image_width / 16)  (destination_image_height / 16), etc.
+		estimator.sampleSize(), // The size of a minimal sample
+		static_cast<double>(image1.cols), // The width of the source image
+		static_cast<double>(image1.rows), // The height of the source image
+		static_cast<double>(image2.cols), // The width of the destination image
+		static_cast<double>(image2.rows),  // The height of the destination image
+		0.5); // The length (i.e., 0.5 * <point number> iterations) of fully blending to global sampling 
+	// // Initialize the sampler used for selecting minimal samples
+
+	// gcransac::sampler::UniformSampler main_sampler(&points);
+	gcransac::sampler::UniformSampler local_optimization_sampler(&points); // The local optimization sampler is used inside the local optimization
+
+	// Checking if the samplers are initialized successfully.
+	if (!main_sampler.isInitialized() ||
+		!local_optimization_sampler.isInitialized())
+	{
+		fprintf(stderr, "One of the samplers is not initialized successfully.\n");
+		return;
+	}
+
+	// Start GC-RANSAC
+	gcransac.run(points,
+		estimator,
+		&main_sampler,
+		&local_optimization_sampler,
+		&neighborhood,
+		model,
+		preemptive_verification);
+
+	// Get the statistics of the results
+	const gcransac::utils::RANSACStatistics &statistics = gcransac.getRansacStatistics();
+
+	// Write statistics
+	printf("\tElapsed time = %f secs\n", statistics.processing_time);
+	printf("\tInlier number = %d\n", static_cast<int>(statistics.inliers.size()));
+	printf("\tApplied number of local optimizations = %d\n", static_cast<int>(statistics.local_optimization_number));
+	printf("\tApplied number of graph-cuts = %d\n", static_cast<int>(statistics.graph_cut_number));
+	printf("Number of iterations = %d\n", static_cast<int>(statistics.iteration_number));
+
+	// Compute the root mean square error (RMSE) using the ground truth inliers
+	double rmse = 0; // The RMSE error
+	// Iterate through all inliers and calculate the error
+	for (const auto& inlier_idx : ground_truth_inliers)
+		rmse += estimator.squaredResidual(points.row(inlier_idx), model);
+	rmse = sqrt(rmse / static_cast<double>(reference_inlier_number));
+	printf("\tRMSE error: %f px\n", rmse);
+
+		// Visualization part.
+	// Inliers are selected using threshold and the estimated model. 
+	// This part is not necessary and is only for visualization purposes. 
+	if (draw_results_)
+	{
+		std::vector<int> obtained_labeling(points.rows, 0);
+
+		for (auto pt_idx = 0; pt_idx < points.rows; ++pt_idx)
+		{
+			// Computing the residual of the point given the estimated model
+			auto residual = estimator.residual(points.row(pt_idx),
+				model.descriptor);
+			
+			// Change the label to 'inlier' if the residual is smaller than the threshold
+			if (drawing_threshold_ >= residual)
+				obtained_labeling[pt_idx] = 1;
+		}
+
+		// Draw the matches to the images
+		cv::Mat out_image;
+		drawMatches<double, int>(points, obtained_labeling, image1, image2, out_image);
+
+		// Show the matches
+		std::string window_name = "Visualization with threshold = " + std::to_string(drawing_threshold_) + " px; Maximum threshold is = ";
+		showImage(out_image,
+			window_name,
+			1600,
+			900);
+		out_image.release();
+	}
+	
 	// Clean up the memory occupied by the images
 	image1.release();
 	image2.release();

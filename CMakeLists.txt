@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 project(MAGSAC LANGUAGES CXX)
 
 # indicate if OPENMP should be enabled
-option(USE_OPENMP "Use OPENMP" ON)
+option(USE_OPENMP "Use OPENMP" OFF)
 
 # ==============================================================================
 # Check C++17 support
