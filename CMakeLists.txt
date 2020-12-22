@@ -78,7 +78,7 @@ file(GLOB_RECURSE HDRS_MAGSAC
 
 # Set source files to be added to the library
 file(GLOB_RECURSE SRCS_MAGSAC 
-	"src/*.cpp"
+	"src/main_all.cpp"
 )
 
 add_executable(${PROJECT_NAME}
@@ -98,7 +98,7 @@ if (CREATE_SAMPLE_PROJECT)
 	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 	add_executable(SampleProject
-		src/main.cpp)
+		src/main_all.cpp)
 		
 	target_link_libraries(SampleProject 
 		${PROJECT_NAME}
