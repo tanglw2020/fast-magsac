@@ -118,7 +118,7 @@ namespace gcransac
 			size_t sample_size_, // The current_sample size
 			double log_probability_); // The logarithm of the desired probability
 
-		// Returns a labeling w.r.t. the current model and point set
+		// Returns a labeling w.r.t. the current model and point set using graph-cut
 		void labeling(const cv::Mat &points_, // The input data points
 			size_t neighbor_number_, // The neighbor number in the graph
 			const std::vector<std::vector<cv::DMatch>> &neighbors_, // The neighborhood
@@ -128,6 +128,14 @@ namespace gcransac
 			double threshold_, // The threshold_ for the inlier-outlier decision
 			std::vector<size_t> &inliers_, // The resulting inlier set
 			double &energy_); // The resulting energy
+
+		// Returns a labeling w.r.t. the current model and point set using threhold
+		void labeling(const cv::Mat &points_, // The input data points
+			Model &model_, // The current model_
+			_ModelEstimator estimator_, // The model estimator
+			double threshold_, // The threshold_ for the inlier-outlier decision
+			std::vector<size_t> &inliers_);  // The resulting inlier set
+			
 
 		// Apply the graph-cut optimization for GC-RANSAC
 		bool graphCutLocalOptimization(const cv::Mat &points_, // The input data points
@@ -687,19 +695,31 @@ namespace gcransac
 			// Clear the inliers
 			inliers.clear();
 
-			// Apply the graph-cut-based inlier/outlier labeling.
-			// The inlier set will contain the points closer than the threshold and
-			// their neighbors depending on the weight of the spatial coherence term.
-			labeling(
-				points_, // The input points
-				statistics.neighbor_number, // The number of neighbors, i.e. the edge number of the graph 
-				neighbours, // The neighborhood graph
-				best_model, // The best model parameters
-				estimator_, // The model estimator
-				settings.spatial_coherence_weight, // The weight of the spatial coherence term
-				settings.threshold, // The inlier-outlier threshold
-				inliers, // The selected inliers
-				energy); // The energy after the procedure
+			if(settings.do_graph_cut)
+			{
+				// Apply the graph-cut-based inlier/outlier labeling.
+				// The inlier set will contain the points closer than the threshold and
+				// their neighbors depending on the weight of the spatial coherence term.
+				labeling(
+					points_, // The input points
+					statistics.neighbor_number, // The number of neighbors, i.e. the edge number of the graph 
+					neighbours, // The neighborhood graph
+					best_model, // The best model parameters
+					estimator_, // The model estimator
+					settings.spatial_coherence_weight, // The weight of the spatial coherence term
+					settings.threshold, // The inlier-outlier threshold
+					inliers, // The selected inliers
+					energy); // The energy after the procedure
+			}
+			else
+			{
+				labeling(
+					points_, // The input points
+					best_model, // The best model parameters
+					estimator_, // The model estimator
+					settings.threshold, // The inlier-outlier threshold
+					inliers); // The selected inliers
+			}
 
 			// Number of points (i.e. the sample size) used in the inner RANSAC
 			const size_t sample_size = 
@@ -889,5 +909,29 @@ namespace gcransac
 
 		// Clean the memory
 		delete problem_graph;
+	}
+
+	// Returns a labeling w.r.t. the current model and point set using
+	// threhold
+	template <class _ModelEstimator, class _NeighborhoodGraph,
+			  class _ScoringFunction, class _PreemptiveModelVerification>
+	void GCRANSAC<_ModelEstimator, _NeighborhoodGraph, _ScoringFunction,
+				  _PreemptiveModelVerification>::
+		labeling(const cv::Mat &points_,		// The input data points
+				 Model &model_,					// The current model_
+				 _ModelEstimator estimator_,	// The model estimator
+				 double threshold_,				// The threshold_ for the inlier-outlier
+												// decision
+				 std::vector<size_t> &inliers_) // The resulting inlier set
+	{
+		// Select the inliers, i.e., the points labeled as SINK.
+		inliers_.reserve(points_.rows);
+		for (auto point_idx = 0; point_idx < points_.rows; ++point_idx)
+		{
+			if (estimator_.squaredResidual(points_.row(point_idx), model_.descriptor) < threshold_)
+			{
+				inliers_.emplace_back(point_idx);
+			}
+		}
 	}
 }

@@ -69,7 +69,7 @@ namespace gcransac
 				do_graph_cut(true),
 				use_inlier_limit(false),
 				desired_fps(-1),
-				max_local_optimization_number(10),
+				max_local_optimization_number(3),
 				max_graph_cut_number(10),
 				max_least_squares_iterations(10),
 				min_iteration_number_before_lo(20),
