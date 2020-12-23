@@ -216,38 +216,27 @@ void runTest(
 			// Apply MAGSAC with maximum threshold set to a fairly high value
 			// printf("\n2. Running MAGSAC with fairly high maximum threshold (%f
 			// px)\n", 50.0);
-			// magsacHomographyFitting(
-			//     ransac_confidence_,
-			//     40.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5);  // The inlier threshold for visualization.
+
+			magsacHomographyFitting(
+			    ransac_confidence_,
+			    50.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
 
 			// printf("\n3. Running gcransac threshold (%f px)\n", 50.0);
 
-			gcransacHomographyFitting(
-				ransac_confidence_, // The confidence required
-				scene,				// The name of the current test scene
-				false,				// A flag determining if the results should be visualized
-				2.5,
-				2.0,   // The used inlier-outlier threshold
-				0.975, // The weight of the spatial coherence term
-				8,	   // The radius of the neighborhood ball
-				-1, 0.1, false, false, false);
-
-			printf("--------------------------------\n");
-
-			gcransacHomographyFitting(
-				ransac_confidence_, // The confidence required
-				scene,				// The name of the current test scene
-				false,				// A flag determining if the results should be visualized
-				2.5,
-				2.0,   // The used inlier-outlier threshold
-				0.975, // The weight of the spatial coherence term
-				8,	   // The radius of the neighborhood ball
-				-1, 0.1, true, false, false);
-
-			printf("--------------------------------\n");
+			// gcransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	2.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.1, false, false, false);
+			// printf("--------------------------------\n");
 
 			gcransacHomographyFitting(
 				ransac_confidence_, // The confidence required
@@ -257,7 +246,30 @@ void runTest(
 				2.0,   // The used inlier-outlier threshold
 				0.975, // The weight of the spatial coherence term
 				8,	   // The radius of the neighborhood ball
-				-1, 0.1, true, false, true);
+				-1, 0.03, false, false, false);
+			// printf("--------------------------------\n");
+
+			// gcransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	2.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.1, true, false, false);
+
+			// printf("--------------------------------\n");
+
+			// gcransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	2.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.1, true, false, true);
 		}
 		else if (scene_type_ == SceneType::FundamentalMatrixScene)
 		{
@@ -828,7 +840,7 @@ void magsacHomographyFitting(
 		MAGSAC<cv::Mat, magsac::utils::DefaultHomographyEstimator> magsac;
 		magsac.setMaximumThreshold(
 			maximum_threshold_);	   // The maximum noise scale sigma allowed
-		magsac.setIterationLimit(1e4); // Iteration limit to interrupt the cases
+		magsac.setIterationLimit(5000); // Iteration limit to interrupt the cases
 									   // when the algorithm run too long.
 		magsac.setReferenceThreshold(2.0);
 
@@ -870,8 +882,13 @@ void magsacHomographyFitting(
 		rmse = sqrt(rmse / static_cast<double>(reference_inlier_number));
 		// printf("\tRMSE error: %f px\n", rmse);
 
-		printf("magsac: %0.5fs %d  %.5fpx\n", elapsed_seconds.count(),
-			   iteration_number, rmse);
+		// Get the statistics of the results
+		const gcransac::utils::RANSACStatistics &statistics =
+			magsac.getRansacStatistics();
+
+		printf("magsac: %0.5fs %d  %.5fpx  %d\n", elapsed_seconds.count(),
+			   iteration_number, rmse, 
+			   static_cast<int>(statistics.accepted_models));
 
 		// Visualization part.
 		// Inliers are selected using threshold and the estimated model.
@@ -1564,7 +1581,7 @@ void gcransacHomographyFitting(
 		gcransac.settings.max_local_optimization_number =
 			50; // The maximm number of local optimizations
 		gcransac.settings.max_iteration_number =
-			5000; // The maximum number of iterations
+			10000; // The maximum number of iterations
 		gcransac.settings.min_iteration_number =
 			50; // The minimum number of iterations
 		gcransac.settings.neighborhood_sphere_radius =
@@ -1634,10 +1651,12 @@ void gcransacHomographyFitting(
 		rmse = sqrt(rmse / static_cast<double>(reference_inlier_number));
 		// printf("\tRMSE error: %f px\n", rmse);
 
-		printf("gcransac: %.5fs  %d  %.5fpx  %d  %d\n", statistics.processing_time,
+		printf("gcransac: %.5fs  %d  %.5fpx  %d  %d %d\n", statistics.processing_time,
 			   static_cast<int>(statistics.iteration_number), rmse,
 			   static_cast<int>(statistics.local_optimization_number),
-			   static_cast<int>(statistics.graph_cut_number));
+			   static_cast<int>(statistics.graph_cut_number), 
+			   static_cast<int>(statistics.accepted_models)
+			   );
 	}
 
 	// Visualization part.

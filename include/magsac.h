@@ -6,6 +6,7 @@
 #include "model.h"
 #include "model_score.h"
 #include "sampler.h"
+#include "statistics.h"
 #include "uniform_sampler.h"
 #include <math.h> 
 #include "gamma_values.cpp"
@@ -34,7 +35,7 @@ public:
 		partition_number(5),
 		core_number(1),
 		number_of_irwls_iters(1),
-		interrupting_threshold(1.0),
+		interrupting_threshold(5.0),
 		last_iteration_number(0),
 		log_confidence(0),
 		point_number(0),
@@ -147,6 +148,9 @@ public:
 		double &score_, // The score to be calculated
 		const double &previous_best_score_); // The score of the previous so-far-the-best model
 
+	// Return the constant reference of the scoring function
+	const gcransac::utils::RANSACStatistics &getRansacStatistics() const { return statistics; }
+
 	size_t number_of_irwls_iters;
 protected:
 	Version magsac_version; // The version of MAGSAC used
@@ -162,6 +166,7 @@ protected:
 	double log_confidence; // The logarithm of the required confidence
 	size_t partition_number; // Number of partitions used to speed up sigma-consensus
 	double interrupting_threshold; // A threshold to speed up MAGSAC by interrupting the sigma-consensus procedure whenever there is no chance of being better than the previous so-far-the-best model
+	gcransac::utils::RANSACStatistics statistics;
 
 	bool sigmaConsensus(
 		const cv::Mat& points_,
@@ -249,7 +254,7 @@ bool MAGSAC<DatumType, ModelEstimator>::run(
 				minimal_sample.get(), // The selected minimal sample
 				&models)) // The estimated models
 				break; 
-		}         
+		}
 
 		// If the method was not able to generate any usable models, break the cycle.
 		iteration += unsuccessful_model_generations - 1;
@@ -358,6 +363,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensus(
 	{
 		// Number of inliers which should be exceeded
 		int points_remaining = best_score_.inlier_number;
+		int inlier_number = 0;
 
 		// Collect the points which are closer than the threshold which the maximum sigma implies
 		for (int point_idx = 0; point_idx < point_number; ++point_idx)
@@ -371,18 +377,22 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensus(
 
 				// Count points which are closer than a reference threshold to speed up the procedure
 				if (residual < interrupting_threshold)
-					--points_remaining;
+				{
+					--points_remaining;  inlier_number++;
+				}
 			}
 
 			// Interrupt if there is no chance of being better
 			// TODO: replace this part by SPRT test
-			if (point_number - point_idx < points_remaining)
-				return false;
+			// if (point_number - point_idx < points_remaining)
+				// return false;
 		}
 
 		// Store the number of really close inliers just to speed up the procedure
 		// by interrupting the next verifications.
-		score_.inlier_number = best_score_.inlier_number - points_remaining;
+		// score_.inlier_number = best_score_.inlier_number - points_remaining;
+		score_.inlier_number = inlier_number;
+		if(inlier_number<best_score_.inlier_number) return false;
 	}
 	else
 	{
@@ -617,6 +627,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// Number of points close to the previous so-far-the-best model. 
 		// This model should have more inliers.
 		int points_remaining = best_score_.inlier_number;
+		int inlier_number = 0;
 
 		// Collect the points which are closer than the threshold which the maximum sigma implies
 		for (int point_idx = 0; point_idx < point_number; ++point_idx)
@@ -631,18 +642,27 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 				// Count points which are closer than a reference threshold to speed up the procedure
 				if (residual < interrupting_threshold)
-					--points_remaining;
+				{
+					--points_remaining;   inlier_number++;
+				}
 			}
 
 			// Interrupt if there is no chance of being better
 			// TODO: replace this part by SPRT test
-			if (point_number - point_idx < points_remaining)
-				return false;
+			// if (point_number - point_idx < points_remaining)
+				// return false;
 		}
 
 		// Store the number of really close inliers just to speed up the procedure
 		// by interrupting the next verifications.
-		score_.inlier_number = best_score_.inlier_number - points_remaining;
+		// score_.inlier_number = best_score_.inlier_number - points_remaining;
+
+		score_.inlier_number = inlier_number;
+		if(inlier_number<best_score_.inlier_number)
+		{
+			return false;
+		} 
+		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
 	}
 	else
 	{
@@ -669,6 +689,8 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// by interrupting the next verifications.
 		score_.inlier_number = points_close;
 	}
+
+	statistics.accepted_models++;
 
 	// Models fit by weighted least-squares fitting
 	std::vector<gcransac::Model> sigma_models;

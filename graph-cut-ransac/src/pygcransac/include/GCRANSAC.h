@@ -345,6 +345,13 @@ namespace gcransac
 
 				bool is_model_updated = false;
 
+				// if( score.inlier_number > so_far_the_best_score.inlier_number)
+				// {
+				// 	++statistics.accepted_models;
+				// 	printf("%d  %d  %f  %f\n", score.inlier_number, so_far_the_best_score.inlier_number,
+				// 	score.value, so_far_the_best_score.value);
+				// }
+
 				// Store the model of its score is higher than that of the previous best
 				if (so_far_the_best_score < score && // Comparing the so-far-the-best model's score and current model's score
 					estimator_.isValidModel(model, // The current model parameters
