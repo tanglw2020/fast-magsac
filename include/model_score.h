@@ -21,6 +21,11 @@ public:
 	{
 		return score < score_.score;
 	}
+
+	inline bool operator>(const ModelScore& score_)
+	{
+		return score > score_.score;
+	}
 };
 
 using Score = ModelScore;

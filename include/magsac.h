@@ -658,10 +658,10 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// score_.inlier_number = best_score_.inlier_number - points_remaining;
 
 		score_.inlier_number = inlier_number;
-		if(inlier_number<best_score_.inlier_number)
-		{
-			return false;
-		} 
+		// if(inlier_number<best_score_.inlier_number)
+		// {
+			// return false;
+		// } 
 		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
 	}
 	else
