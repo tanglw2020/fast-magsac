@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "fast_magsac.h"
 #include "magsac.h"
 #include "magsac_utils.h"
 #include "utils.h"
@@ -98,12 +99,19 @@ void magsacEssentialMatrixFitting(double ransac_confidence_,
 
 // A method applying MAGSAC for homography estimation to one of the built-in
 // scenes
-void magsacHomographyFitting(double ransac_confidence_,
+void fastMagsacHomographyFitting(double ransac_confidence_,
 							 double maximum_threshold_, std::string test_scene_,
 							 bool draw_results_ = false,
 							 double drawing_threshold_ = 2,
 							 const int repeat_number_ = 10);
 
+// A method applying MAGSAC for homography estimation to one of the built-in
+// scenes
+void magsacHomographyFitting(double ransac_confidence_,
+							 double maximum_threshold_, std::string test_scene_,
+							 bool draw_results_ = false,
+							 double drawing_threshold_ = 2,
+							 const int repeat_number_ = 10);
 // A method applying OpenCV for homography estimation to one of the built-in
 // scenes
 void opencvHomographyFitting(double ransac_confidence_, double threshold_,
@@ -229,13 +237,21 @@ void runTest(
 				false,				// A flag to draw and show the results
 				false, 1);			// A flag to apply the MAGSAC post-processing to the
 									// OpenCV's output
-			printf("--------------------------------\n");
+			printf("-------------------------------\n");
 
 			// Apply MAGSAC with maximum threshold set to a fairly high value
 			// printf("\n2. Running MAGSAC with fairly high maximum threshold (%f
 			// px)\n", 50.0);
 
 			magsacHomographyFitting(
+			    ransac_confidence_,
+			    50.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
+
+			fastMagsacHomographyFitting(
 			    ransac_confidence_,
 			    50.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
@@ -277,17 +293,17 @@ void runTest(
 				8,	   // The radius of the neighborhood ball
 				-1, 0.01, false, false, false);
 
-			printf("--------------------------------\n");
+			// printf("--------------------------------\n");
 
-			loransacHomographyFitting(
-				ransac_confidence_, // The confidence required
-				scene,				// The name of the current test scene
-				false,				// A flag determining if the results should be visualized
-				2.5,
-				2.0,   // The used inlier-outlier threshold
-				0.975, // The weight of the spatial coherence term
-				8,	   // The radius of the neighborhood ball
-				-1, 0.01, true, false, false);
+			// loransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	2.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false);
 
 			// printf("--------------------------------\n");
 
@@ -966,6 +982,206 @@ void magsacHomographyFitting(
 	image1.release();
 	image2.release();
 }
+
+
+
+void fastMagsacHomographyFitting(
+	double ransac_confidence_, // The confidence required
+	double maximum_threshold_, // The maximum threshold value
+	std::string test_scene_,   // The name of the current test scene
+	bool
+		draw_results_, // A flag determining if the results should be visualized
+	double drawing_threshold_,
+	const int repeat_number_) // The threshold used for visualizing the results
+{
+	// Print the name of the current test scene
+	// printf("\tProcessed scene = '%s'.\n", test_scene_.c_str());
+
+	// Load the images of the current test scene
+	cv::Mat image1 = cv::imread("data/homography/" + test_scene_ + "A.png");
+	cv::Mat image2 = cv::imread("data/homography/" + test_scene_ + "B.png");
+	if (image1.cols == 0 ||
+		image2.cols == 0) // If the images have not been loaded, try to load them
+						  // as jpg files.
+	{
+		image1 = cv::imread("data/homography/" + test_scene_ + "A.jpg");
+		image2 = cv::imread("data/homography/" + test_scene_ + "B.jpg");
+	}
+
+	// If the images have not been loaded, return
+	if (image1.cols == 0 || image2.cols == 0)
+	{
+		fprintf(stderr,
+				"A problem occured when loading the images for test scene '%s'\n",
+				test_scene_.c_str());
+		return;
+	}
+
+	cv::Mat points; // The point correspondences, each is of format "x1 y1 x2 y2"
+	std::vector<int>
+		ground_truth_labels; // The ground truth labeling provided in the dataset
+
+	// A function loading the points from files
+	readAnnotatedPoints("data/homography/" + test_scene_ +
+							"_pts.txt",		  // The path where the reference labeling
+											  // and the points are found
+						points,				  // All data points
+						ground_truth_labels); // The reference labeling
+
+	// The number of points in the datasets
+	const size_t point_number = points.rows; // The number of points in the scene
+
+	if (point_number == 0) // If there are no points, return
+	{
+		fprintf(stderr,
+				"A problem occured when loading the annotated points for test "
+				"scene '%s'\n",
+				test_scene_.c_str());
+		return;
+	}
+
+	magsac::utils::DefaultHomographyEstimator
+		estimator;				// The robust homography estimator class containing the
+								// function for the fitting and residual calculation
+	gcransac::Homography model; // The estimated model
+
+	// In this used datasets, the manually selected inliers are not all inliers
+	// but a subset of them. Therefore, the manually selected inliers are
+	// augmented as follows: (i) First, the implied model is estimated from the
+	// manually selected inliers. (ii) Second, the inliers of the ground truth
+	// model are selected.
+	std::vector<int> refined_labels = ground_truth_labels;
+	refineManualLabeling<gcransac::Homography,
+						 magsac::utils::DefaultHomographyEstimator>(
+		points,			// The data points
+		refined_labels, // The refined labeling
+		estimator,		// The model estimator
+		2.0);			// The used threshold in pixels
+
+	// Select the inliers from the labeling
+	std::vector<int> ground_truth_inliers =
+						 getSubsetFromLabeling(ground_truth_labels, 1),
+					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
+	if (ground_truth_inliers.size() < refined_inliers.size())
+		ground_truth_inliers.swap(refined_inliers);
+
+	const size_t reference_inlier_number = ground_truth_inliers.size();
+
+	// printf("\tEstimated model = 'homography'.\n");
+	// printf("\tNumber of correspondences loaded = %d.\n",
+	// static_cast<int>(point_number)); printf("\tNumber of ground truth inliers =
+	// %d.\n", static_cast<int>(reference_inlier_number)); printf("\tTheoretical
+	// RANSAC iteration number at %.2f confidence = %d.\n",
+	// ransac_confidence_, static_cast<int>(log(1.0 - ransac_confidence_) /
+	// log(1.0 - pow(static_cast<double>(reference_inlier_number) /
+	// static_cast<double>(point_number), 4))));
+
+	for (int repeat_i = 0; repeat_i < repeat_number_; repeat_i++)
+	{
+		// Initialize the sampler used for selecting minimal samples
+		gcransac::sampler::UniformSampler main_sampler(&points);
+
+		FASTMAGSAC<cv::Mat, magsac::utils::DefaultHomographyEstimator> magsac;
+		magsac.setMaximumThreshold(
+			maximum_threshold_);	   // The maximum noise scale sigma allowed
+		magsac.setIterationLimit(5000); // Iteration limit to interrupt the cases
+									   // when the algorithm run too long.
+		magsac.setReferenceThreshold(2.0);
+
+		int iteration_number = 0; // Number of iterations required
+		ModelScore score;		  // The model score
+
+		std::chrono::time_point<std::chrono::system_clock> end,
+			start = std::chrono::system_clock::now();
+		magsac.run(points,			   // The data points
+				   ransac_confidence_, // The required confidence in the results
+				   estimator,		   // The used estimator
+				   main_sampler,	   // The sampler used for selecting minimal samples
+									   // in each iteration
+				   model,			   // The estimated model
+				   iteration_number,   // The number of iterations
+				   score);			   // The score of the estimated model
+		end = std::chrono::system_clock::now();
+
+		std::chrono::duration<double> elapsed_seconds = end - start;
+		std::time_t end_time = std::chrono::system_clock::to_time_t(end);
+
+		// printf("\tActual number of iterations drawn by MAGSAC at %.2f confidence:
+		// %d\n", ransac_confidence_, iteration_number); printf("\tElapsed time: %f
+		// secs\n", elapsed_seconds.count());
+
+		if (model.descriptor.size() == 0)
+		{
+			// Clean up the memory occupied by the images
+			image1.release();
+			image2.release();
+			printf("fmagsac: failed\n");
+			return;
+		}
+
+		// Compute the root mean square error (RMSE) using the ground truth inliers
+		double rmse = 0; // The RMSE error
+		// Iterate through all inliers and calculate the error
+		for (const auto &inlier_idx : ground_truth_inliers)
+			rmse += estimator.squaredResidual(points.row(inlier_idx), model);
+		rmse = sqrt(rmse / static_cast<double>(reference_inlier_number));
+		// printf("\tRMSE error: %f px\n", rmse);
+
+		// Get the statistics of the results
+		const gcransac::utils::RANSACStatistics &statistics =
+			magsac.getRansacStatistics();
+
+		printf("fmagsac: %0.5fs %d  %.5fpx  %.6f %d\n", elapsed_seconds.count(),
+			   iteration_number, rmse,  score.score, 
+			   static_cast<int>(statistics.accepted_models));
+
+		// Visualization part.
+		// Inliers are selected using threshold and the estimated model.
+		// This part is not necessary and is only for visualization purposes.
+		if (draw_results_)
+		{
+			// The labeling implied by the estimated model and the drawing threshold
+			std::vector<int> obtained_labeling(points.rows, 0);
+
+			for (size_t point_idx = 0; point_idx < points.rows; ++point_idx)
+			{
+				// Computing the residual of the point given the estimated model
+				auto residual = sqrt(estimator.residual(points.row(point_idx), model));
+
+				// Change the label to 'inlier' if the residual is smaller than the
+				// threshold
+				if (drawing_threshold_ >= residual)
+					obtained_labeling[point_idx] = 1;
+			}
+
+			cv::Mat out_image;
+
+			// Draw the matches to the images
+			drawMatches<double, int>(
+				points,			   // All points
+				obtained_labeling, // The labeling obtained by OpenCV
+				image1,			   // The source image
+				image2,			   // The destination image
+				out_image);		   // The image with the matches drawn
+
+			// Show the matches
+			std::string window_name =
+				"Visualization with threshold = " +
+				std::to_string(drawing_threshold_) +
+				" px; Maximum threshold is = " + std::to_string(maximum_threshold_);
+			showImage(out_image,   // The image with the matches drawn
+					  window_name, // The name of the window
+					  1600,		   // The width of the window
+					  900);		   // The height of the window
+			out_image.release();   // Clean up the memory
+		}
+	}
+
+	// Clean up the memory occupied by the images
+	image1.release();
+	image2.release();
+}
+
 
 void opencvHomographyFitting(double ransac_confidence_, double threshold_,
 							 std::string test_scene_, bool draw_results_,

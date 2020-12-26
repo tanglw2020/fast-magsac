@@ -9,7 +9,7 @@
 #include "statistics.h"
 #include "uniform_sampler.h"
 #include <math.h> 
-#include "gamma_values.cpp"
+#include "gamma_values.h"
 
 #ifdef _WIN32 
 	#include <ppl.h>
