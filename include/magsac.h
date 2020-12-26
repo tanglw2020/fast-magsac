@@ -621,6 +621,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// Occupy the maximum required memory to avoid doing it later.
 	residuals.reserve(point_number);
 
+
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
 	if (best_score_.inlier_number > 0)
 	{
@@ -663,6 +664,20 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			// return false;
 		// } 
 		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
+
+		ModelScore current_score;
+		getModelQualityPlusPlus(points_, // All the input points
+		model_, // The estimated model
+		estimator_, // The estimator
+		current_score.score, // The marginalized score
+		best_score_.score); // The score of the previous so-far-the-best model
+		// printf("%f %f \n", best_score_.score, current_score.score);
+
+		score_.init_score = current_score.score;
+		if(current_score.score < best_score_.init_score*0.95)
+		{
+			return  false;
+		}
 	}
 	else
 	{

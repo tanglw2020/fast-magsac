@@ -15,7 +15,10 @@ public:
 	/* Iteration number when it is found */
 	size_t iteration;
 
-	ModelScore() : inlier_number(0), score(0), probability(0), iteration(0) { }
+	/* for init judgement for magsac */
+	double init_score;
+
+	ModelScore() : inlier_number(0), score(0), probability(0), iteration(0), init_score(0) { }
 
 	inline bool operator<(const ModelScore& score_)
 	{

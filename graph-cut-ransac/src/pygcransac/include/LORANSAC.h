@@ -361,6 +361,7 @@ void LORANSAC<_ModelEstimator, _NeighborhoodGraph, _ScoringFunction,
       // }
 
       // Store the model of its score is higher than that of the previous best
+      // if (so_far_the_best_score.inlier_number < score.inlier_number && // Comparing the so-far-the-best model's score and
       if (so_far_the_best_score < score && // Comparing the so-far-the-best model's score and
                                            // current model's score
           estimator_.isValidModel(model,   // The current model parameters
@@ -434,7 +435,6 @@ void LORANSAC<_ModelEstimator, _NeighborhoodGraph, _ScoringFunction,
                                                                      // steps
 
       if (so_far_the_best_score < local_the_best_score) {
-        // local_the_best_score.inlier_number = local_score.inlier_number;
         so_far_the_best_score = local_the_best_score;
         // so_far_the_best_score.inlier_number = local_score.inlier_number;
         so_far_the_best_model = local_the_best_model;
