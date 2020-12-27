@@ -646,6 +646,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			const double residual = estimator_.residual(points_.row(point_idx), model_);
 			if (current_maximum_sigma > residual)
 			{
+				sum_weights_[point_idx] = (1/sqrt(residual+1.0));
 				// Store the residual of the current point and its index
 				residuals.emplace_back(std::make_pair(residual, point_idx));
 				// all_residuals.emplace_back(std::make_pair(residual * threshold_to_sigma_multiplier, point_idx));
@@ -656,6 +657,11 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 					--points_remaining;   inlier_number++;
 				}
 			}
+			else
+			{
+				sum_weights_[point_idx] = (1/(residual+1.0));
+			}
+			
 
 			// Interrupt if there is no chance of being better
 			// TODO: replace this part by SPRT test
@@ -668,10 +674,10 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// score_.inlier_number = best_score_.inlier_number - points_remaining;
 
 		score_.inlier_number = inlier_number;
-		// if(inlier_number<best_score_.inlier_number)
-		// {
-		// 	return false;
-		// } 
+		if(inlier_number<best_score_.inlier_number)
+		{
+			return false;
+		} 
 
 		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
 
@@ -701,12 +707,17 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			const double residual = estimator_.residual(points_.row(point_idx), model_);
 			if (current_maximum_sigma > residual)
 			{
+				sum_weights_[point_idx] = (1/sqrt(residual+1.0));
 				// Store the residual of the current point and its index
 				residuals.emplace_back(std::make_pair(residual, point_idx));
 
 				// Count points which are closer than a reference threshold to speed up the procedure
 				if (residual < interrupting_threshold)
 					++points_close;
+			}
+			else
+			{
+				sum_weights_[point_idx] = (1/(residual+1.0));
 			}
 		}
 
@@ -812,7 +823,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			}
 
 			// sum_weights_[idx] += weight;
-			sum_weights_[idx] = (1/(residual+1.0));
+			// sum_weights_[idx] = (1/sqrt(residual+1.0));
 
 			// printf("%f %f\n", residual, weight);
 
@@ -875,51 +886,54 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 			refined_model_ = sum_models[0];
 
+			// printf("refined_model_:%d\n", refined_model_.descriptor.size());
+
 			getModelQualityPlusPlus(points_, // All the input points
 			refined_model_, // The estimated model
 			estimator_, // The estimator
 			sum_score.score, // The marginalized score
 			best_score_.score); // The score of the previous so-far-the-best model
 
+			score_.score = sum_score.score;
 			// Update the iteration number
 		last_iteration_number =
 			log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
 		
 		// last_iteration_number = 100;
 
-		// return true;
+		return true;
 		}
 	}
 
-	bool is_model_updated = false;
+	// bool is_model_updated = false;
 
-	if (updated && // If the model has been updated
-		estimator_.isValidModel(polished_model,
-			points_,
-			sigma_inliers,
-			&(sigma_inliers[0]),
-			interrupting_threshold,
-			is_model_updated)) // and it is valid
-	{
-		// Return the refined model
-		refined_model_ = polished_model;
+	// if (updated && // If the model has been updated
+	// 	estimator_.isValidModel(polished_model,
+	// 		points_,
+	// 		sigma_inliers,
+	// 		&(sigma_inliers[0]),
+	// 		interrupting_threshold,
+	// 		is_model_updated)) // and it is valid
+	// {
+	// 	// Return the refined model
+	// 	refined_model_ = polished_model;
 
-		// Calculate the score of the model and the implied iteration number
-		double marginalized_iteration_number;
-		getModelQualityPlusPlus(points_, // All the input points
-			refined_model_, // The estimated model
-			estimator_, // The estimator
-			score_.score, // The marginalized score
-			best_score_.score); // The score of the previous so-far-the-best model
+	// 	// Calculate the score of the model and the implied iteration number
+	// 	double marginalized_iteration_number;
+	// 	getModelQualityPlusPlus(points_, // All the input points
+	// 		refined_model_, // The estimated model
+	// 		estimator_, // The estimator
+	// 		score_.score, // The marginalized score
+	// 		best_score_.score); // The score of the previous so-far-the-best model
 
-		// printf("score: %f  %f  %f\n", score_.score, sum_score.score, score_.score-sum_score.score);
+	// 	// printf("score: %f  %f  %f\n", score_.score, sum_score.score, score_.score-sum_score.score);
 			
-		// Update the iteration number
-		last_iteration_number =
-			log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
-		// last_iteration_number = 100;
-		return true;
-	}
+	// 	// Update the iteration number
+	// 	last_iteration_number =
+	// 		log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+	// 	// last_iteration_number = 100;
+	// 	return true;
+	// }
 	return false;
 }
 

@@ -659,25 +659,25 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// score_.inlier_number = best_score_.inlier_number - points_remaining;
 
 		score_.inlier_number = inlier_number;
-		// if(inlier_number<best_score_.inlier_number)
-		// {
-			// return false;
-		// } 
+		if(inlier_number<best_score_.inlier_number)
+		{
+			return false;
+		} 
 		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
 
-		ModelScore current_score;
-		getModelQualityPlusPlus(points_, // All the input points
-		model_, // The estimated model
-		estimator_, // The estimator
-		current_score.score, // The marginalized score
-		best_score_.score); // The score of the previous so-far-the-best model
-		// printf("%f %f \n", best_score_.score, current_score.score);
+		// ModelScore current_score;
+		// getModelQualityPlusPlus(points_, // All the input points
+		// model_, // The estimated model
+		// estimator_, // The estimator
+		// current_score.score, // The marginalized score
+		// best_score_.score); // The score of the previous so-far-the-best model
+		// // printf("%f %f \n", best_score_.score, current_score.score);
 
-		score_.init_score = current_score.score;
-		if(current_score.score < best_score_.init_score*0.95)
-		{
-			return  false;
-		}
+		// score_.init_score = current_score.score;
+		// if(current_score.score < best_score_.init_score*0.95)
+		// {
+		// 	return  false;
+		// }
 	}
 	else
 	{

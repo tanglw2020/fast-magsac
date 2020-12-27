@@ -243,6 +243,13 @@ void runTest(
 			// printf("\n2. Running MAGSAC with fairly high maximum threshold (%f
 			// px)\n", 50.0);
 
+			// magsacHomographyFitting(
+			//     ransac_confidence_,
+			//     20.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
 			magsacHomographyFitting(
 			    ransac_confidence_,
 			    50.0,  // The maximum sigma value allowed in MAGSAC
@@ -253,7 +260,23 @@ void runTest(
 
 			fastMagsacHomographyFitting(
 			    ransac_confidence_,
-			    50.0,  // The maximum sigma value allowed in MAGSAC
+			    10.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
+
+			fastMagsacHomographyFitting(
+			    ransac_confidence_,
+			    20.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
+
+			fastMagsacHomographyFitting(
+			    ransac_confidence_,
+			    40.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
 			    2.5);  // The inlier threshold for visualization.
