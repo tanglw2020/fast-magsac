@@ -10,6 +10,7 @@
 #include "uniform_sampler.h"
 #include <math.h> 
 #include "gamma_values.h"
+#include <iostream>
 
 #ifdef _WIN32 
 	#include <ppl.h>
@@ -120,6 +121,9 @@ public:
 			std::numeric_limits<double>::max() : 
 			1.0 / fps_;
 	}
+
+	// get the weight based on residuel
+	double getWeightFromRes(double res, double threshold, int type);
 
 	// The post-processing algorithm applying sigma-consensus to the input model once.
 	bool postProcessing(
@@ -630,6 +634,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// Occupy the maximum required memory to avoid doing it later.
 	residuals.reserve(point_number);
 
+	const int weight_type = 3;
+
 
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
 	if (best_score_.inlier_number > 0)
@@ -646,7 +652,9 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			const double residual = estimator_.residual(points_.row(point_idx), model_);
 			if (current_maximum_sigma > residual)
 			{
-				sum_weights_[point_idx] = (1/sqrt(residual+1.0));
+				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
+				// sum_weights_[point_idx] = (1/(exp(-residual*residual/current_maximum_sigma/current_maximum_sigma)));
+				// sum_weights_[point_idx] = (1/(exp(-residual/current_maximum_sigma)));
 				// Store the residual of the current point and its index
 				residuals.emplace_back(std::make_pair(residual, point_idx));
 				// all_residuals.emplace_back(std::make_pair(residual * threshold_to_sigma_multiplier, point_idx));
@@ -659,7 +667,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			}
 			else
 			{
-				sum_weights_[point_idx] = (1/(residual+1.0));
+				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
 			}
 			
 
@@ -690,7 +698,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// // printf("%f %f \n", best_score_.score, current_score.score);
 
 		// score_.init_score = current_score.score;
-		// if(current_score.score < best_score_.init_score*0.95)
+		// if(current_score.score < best_score_.init_score)
 		// {
 		// 	return  false;
 		// }
@@ -707,7 +715,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			const double residual = estimator_.residual(points_.row(point_idx), model_);
 			if (current_maximum_sigma > residual)
 			{
-				sum_weights_[point_idx] = (1/sqrt(residual+1.0));
+				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
+				// sum_weights_[point_idx] = (1/(exp(-residual*residual/current_maximum_sigma/current_maximum_sigma)));
 				// Store the residual of the current point and its index
 				residuals.emplace_back(std::make_pair(residual, point_idx));
 
@@ -717,7 +726,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			}
 			else
 			{
-				sum_weights_[point_idx] = (1/(residual+1.0));
+				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
 			}
 		}
 
@@ -886,7 +895,9 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 			refined_model_ = sum_models[0];
 
-			// printf("refined_model_:%d\n", refined_model_.descriptor.size());
+			// std::cout<< "-------------------" << std::endl;
+			// std::cout<< refined_model_.descriptor << std::endl;
+			// std::cout<< "-------------------" << std::endl;
 
 			getModelQualityPlusPlus(points_, // All the input points
 			refined_model_, // The estimated model
@@ -1121,4 +1132,39 @@ void FASTMAGSAC<DatumType, ModelEstimator>::getModelQuality(
 		marginalized_iteration_number_ += log_confidence / log(1.0 - std::pow(inliers[i] / point_number, sample_size));
 	}
 	marginalized_iteration_number_ = marginalized_iteration_number_ / partition_number;
+}
+
+
+// get the weight based on residuel
+template <class DatumType, class ModelEstimator>
+double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, double threshold, int type)
+{
+	switch (type)
+	{
+	case 0:
+		if(residual<threshold)
+			return (1/(pow(residual+1, 0.5)));
+		else
+			return 0;
+	case 1:
+		if(residual<threshold)
+			return (1/((residual+1)));
+		else
+			return 0;
+	case 2:
+		if(residual<threshold)
+			return (1/(exp(-residual*residual/threshold/threshold/2)));
+		else
+			return 0;
+	case 3:
+		if(residual<threshold)
+		{
+			double diff = -residual+threshold;
+			return (abs(diff));
+		}
+		else
+			return 0;
+	default:
+		return 0;
+	}
 }
