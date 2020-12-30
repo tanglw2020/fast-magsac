@@ -634,7 +634,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// Occupy the maximum required memory to avoid doing it later.
 	residuals.reserve(point_number);
 
-	const int weight_type = 3;
+	const int weight_type = 4;
+	interrupting_threshold = sqrt(current_maximum_sigma)*2;
 
 
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
@@ -1161,6 +1162,14 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 		{
 			double diff = -residual+threshold;
 			return (abs(diff));
+		}
+		else
+			return 0;
+	case 4:
+		if(residual<threshold)
+		{
+			double diff = -residual+threshold;
+			return (1.0);
 		}
 		else
 			return 0;

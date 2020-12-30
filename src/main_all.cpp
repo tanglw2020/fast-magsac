@@ -259,17 +259,9 @@ void runTest(
 			    2.5);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			// fastMagsacHomographyFitting(
-			//     ransac_confidence_,
-			//     10.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5);  // The inlier threshold for visualization.
-			// printf("--------------------------------\n");
-
 			fastMagsacHomographyFitting(
 			    ransac_confidence_,
-			    20.0,  // The maximum sigma value allowed in MAGSAC
+			    5.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
 			    2.5);  // The inlier threshold for visualization.
@@ -277,7 +269,15 @@ void runTest(
 
 			fastMagsacHomographyFitting(
 			    ransac_confidence_,
-			    40.0,  // The maximum sigma value allowed in MAGSAC
+			    10.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
+
+			fastMagsacHomographyFitting(
+			    ransac_confidence_,
+			    20.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
 			    2.5);  // The inlier threshold for visualization.
