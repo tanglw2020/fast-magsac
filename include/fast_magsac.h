@@ -152,6 +152,16 @@ public:
 		double &score_, // The score to be calculated
 		const double &previous_best_score_); // The score of the previous so-far-the-best model
 
+	// The function determining the quality/score of a 
+	// model using the MAGSAC++ criterion.
+	void getModelQualityPlusPlus(
+	const cv::Mat &points_, // All data points
+	const gcransac::Model &model_, // The model parameter
+	const ModelEstimator &estimator_, // The model estimator class
+	double &score_, // The score to be calculated
+	int &inlier_number_, //
+	const double &previous_best_score_, int type, std::vector<double> &resduals_);
+
 	// Return the constant reference of the scoring function
 	const gcransac::utils::RANSACStatistics &getRansacStatistics() const { return statistics; }
 
@@ -213,6 +223,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::run(
 	std::unique_ptr<size_t[]> minimal_sample(new size_t[sample_size]); // The sample used for the estimation
 
 	std::vector<double> sum_weights(point_number);
+	so_far_the_best_score.score = -maximum_threshold;
 
 	std::vector<size_t> pool(points_.rows);
 	for (size_t point_idx = 0; point_idx < point_number; ++point_idx)
@@ -294,7 +305,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::run(
 					sum_weights);
 
 			// Continue if the model was rejected
-			if (!success || score.score == -1)
+			// if (!success || score.score == -1)
+			if (!success)
 				continue;
 
 			// Save the iteration number when the current model is found
@@ -634,107 +646,52 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// Occupy the maximum required memory to avoid doing it later.
 	residuals.reserve(point_number);
 
-	const int weight_type = 4;
-	interrupting_threshold = sqrt(current_maximum_sigma)*2;
-
+	const int weight_type = 0;
+	interrupting_threshold = sqrt(current_maximum_sigma)*1.5;
 
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
-	if (best_score_.inlier_number > 0)
+	// if (best_score_.inlier_number > 0)
 	{
 		// Number of points close to the previous so-far-the-best model. 
 		// This model should have more inliers.
 		int points_remaining = best_score_.inlier_number;
 		int inlier_number = 0;
+		double score = 0;
+		std::vector<double> resdual_all;
 
-		// Collect the points which are closer than the threshold which the maximum sigma implies
-		for (int point_idx = 0; point_idx < point_number; ++point_idx)
-		{
-			// Calculate the residual of the current point
-			const double residual = estimator_.residual(points_.row(point_idx), model_);
-			if (current_maximum_sigma > residual)
-			{
-				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
-				// sum_weights_[point_idx] = (1/(exp(-residual*residual/current_maximum_sigma/current_maximum_sigma)));
-				// sum_weights_[point_idx] = (1/(exp(-residual/current_maximum_sigma)));
-				// Store the residual of the current point and its index
-				residuals.emplace_back(std::make_pair(residual, point_idx));
-				// all_residuals.emplace_back(std::make_pair(residual * threshold_to_sigma_multiplier, point_idx));
-
-				// Count points which are closer than a reference threshold to speed up the procedure
-				if (residual < interrupting_threshold)
-				{
-					--points_remaining;   inlier_number++;
-				}
-			}
-			else
-			{
-				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
-			}
-			
-
-			// Interrupt if there is no chance of being better
-			// TODO: replace this part by SPRT test
-			// if (point_number - point_idx < points_remaining)
-				// return false;
-		}
-
-		// Store the number of really close inliers just to speed up the procedure
-		// by interrupting the next verifications.
-		// score_.inlier_number = best_score_.inlier_number - points_remaining;
+		getModelQualityPlusPlus(points_, // All the input points
+		model_, // The estimated model
+		estimator_, // The estimator
+		score, // The marginalized score
+		inlier_number,
+		best_score_.score, 0, resdual_all);
 
 		score_.inlier_number = inlier_number;
+		score_.init_score = score;
+		// printf("%d %d %d %f %f\n", 
+		// 	inlier_number, best_score_.inlier_number, resdual_all.size(), score, 
+		// 	best_score_.score);
+
 		if(inlier_number<best_score_.inlier_number)
+		// if(score<best_score_.init_score)
 		{
 			return false;
 		} 
 
-		// printf("best current: %d  %d \n", best_score_.inlier_number, inlier_number);
-
-		// ModelScore current_score;
-		// getModelQualityPlusPlus(points_, // All the input points
-		// model_, // The estimated model
-		// estimator_, // The estimator
-		// current_score.score, // The marginalized score
-		// best_score_.score); // The score of the previous so-far-the-best model
-		// // printf("%f %f \n", best_score_.score, current_score.score);
+		// Collect the points which are closer than the threshold which the maximum sigma implies
+		for (int point_idx = 0; point_idx < point_number; ++point_idx)
+		{
+			sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], current_maximum_sigma, weight_type);
+		}
 
 		// score_.init_score = current_score.score;
 		// if(current_score.score < best_score_.init_score)
 		// {
 		// 	return  false;
 		// }
+
 	}
-	else
-	{
-		// The number of really close points
-		size_t points_close = 0;
 
-		// Collect the points which are closer than the threshold which the maximum sigma implies
-		for (size_t point_idx = 0; point_idx < point_number; ++point_idx)
-		{
-			// Calculate the residual of the current point
-			const double residual = estimator_.residual(points_.row(point_idx), model_);
-			if (current_maximum_sigma > residual)
-			{
-				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
-				// sum_weights_[point_idx] = (1/(exp(-residual*residual/current_maximum_sigma/current_maximum_sigma)));
-				// Store the residual of the current point and its index
-				residuals.emplace_back(std::make_pair(residual, point_idx));
-
-				// Count points which are closer than a reference threshold to speed up the procedure
-				if (residual < interrupting_threshold)
-					++points_close;
-			}
-			else
-			{
-				sum_weights_[point_idx] = getWeightFromRes(residual, current_maximum_sigma, weight_type);
-			}
-		}
-
-		// Store the number of really close inliers just to speed up the procedure
-		// by interrupting the next verifications.
-		score_.inlier_number = points_close;
-	}
 
 	statistics.accepted_models++;
 
@@ -764,112 +721,112 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	bool updated = false;
 
 	// Do the iteratively re-weighted least squares fitting
-	for (size_t iterations = 0; iterations < number_of_irwls_iters; ++iterations)
-	{
-		// If the current iteration is not the first, the set of possibly inliers 
-		// (i.e., points closer than the maximum threshold) have to be recalculated. 
-		if (iterations > 0)
-		{
-			// The number of points close to the model
-			size_t points_close = 0;
-			// Remove everything from the residual vector
-			residuals.clear();
+	// for (size_t iterations = 0; iterations < number_of_irwls_iters; ++iterations)
+	// {
+	// 	// If the current iteration is not the first, the set of possibly inliers 
+	// 	// (i.e., points closer than the maximum threshold) have to be recalculated. 
+	// 	if (iterations > 0)
+	// 	{
+	// 		// The number of points close to the model
+	// 		size_t points_close = 0;
+	// 		// Remove everything from the residual vector
+	// 		residuals.clear();
 
-			// Collect the points which are closer than the maximum threshold
-			for (size_t point_idx = 0; point_idx < point_number; ++point_idx)
-			{
-				// Calculate the residual of the current point
-				const double residual = estimator_.residual(points_.row(point_idx), polished_model);
-				if (current_maximum_sigma > residual)
-				{
-					// Store the residual of the current point and its index
-					residuals.emplace_back(std::make_pair(residual, point_idx));
+	// 		// Collect the points which are closer than the maximum threshold
+	// 		for (size_t point_idx = 0; point_idx < point_number; ++point_idx)
+	// 		{
+	// 			// Calculate the residual of the current point
+	// 			const double residual = estimator_.residual(points_.row(point_idx), polished_model);
+	// 			if (current_maximum_sigma > residual)
+	// 			{
+	// 				// Store the residual of the current point and its index
+	// 				residuals.emplace_back(std::make_pair(residual, point_idx));
 
-					// Count points which are closer than a reference threshold to speed up the procedure
-					if (residual < interrupting_threshold)
-						++points_close;
-				}
-			}
+	// 				// Count points which are closer than a reference threshold to speed up the procedure
+	// 				if (residual < interrupting_threshold)
+	// 					++points_close;
+	// 			}
+	// 		}
 
-			// Store the number of really close inliers just to speed up the procedure
-			// by interrupting the next verifications.
-			score_.inlier_number = points_close;
+	// 		// Store the number of really close inliers just to speed up the procedure
+	// 		// by interrupting the next verifications.
+	// 		score_.inlier_number = points_close;
 
-			// Number of points closer than the threshold
-			const size_t possible_inlier_number = residuals.size();
+	// 		// Number of points closer than the threshold
+	// 		const size_t possible_inlier_number = residuals.size();
 
-			// Clear the inliers and weights
-			sigma_inliers.clear();
-			sigma_weights.clear();
+	// 		// Clear the inliers and weights
+	// 		sigma_inliers.clear();
+	// 		sigma_weights.clear();
 
-			// Occupy the memory for the inliers and weights
-			sigma_inliers.reserve(possible_inlier_number);
-			sigma_weights.reserve(possible_inlier_number);
-		}
+	// 		// Occupy the memory for the inliers and weights
+	// 		sigma_inliers.reserve(possible_inlier_number);
+	// 		sigma_weights.reserve(possible_inlier_number);
+	// 	}
 
-		// Calculate the weight of each point
-		for (const auto &[residual, idx] : residuals)
-		{
-			// The weight
-			double weight = 0.0;
-			// If the residual is ~0, the point fits perfectly and it is handled differently
-			if (residual < std::numeric_limits<double>::epsilon())
-				weight = weight_zero;
-			else
-			{
-				// Calculate the squared residual
-				const double squared_residual = residual * residual;
-				// Get the position of the gamma value in the lookup table
-				size_t x = round(precision_of_stored_gammas * squared_residual / squared_sigma_max_2);
-				// Put the index of the point into the vector of points used for the least squares fitting
-				sigma_inliers.emplace_back(idx);
+	// 	// Calculate the weight of each point
+	// 	for (const auto &[residual, idx] : residuals)
+	// 	{
+	// 		// The weight
+	// 		double weight = 0.0;
+	// 		// If the residual is ~0, the point fits perfectly and it is handled differently
+	// 		if (residual < std::numeric_limits<double>::epsilon())
+	// 			weight = weight_zero;
+	// 		else
+	// 		{
+	// 			// Calculate the squared residual
+	// 			const double squared_residual = residual * residual;
+	// 			// Get the position of the gamma value in the lookup table
+	// 			size_t x = round(precision_of_stored_gammas * squared_residual / squared_sigma_max_2);
+	// 			// Put the index of the point into the vector of points used for the least squares fitting
+	// 			sigma_inliers.emplace_back(idx);
 
-				// If the sought gamma value is not stored in the lookup, return the closest element
-				if (stored_gamma_number < x)
-					x = stored_gamma_number;
+	// 			// If the sought gamma value is not stored in the lookup, return the closest element
+	// 			if (stored_gamma_number < x)
+	// 				x = stored_gamma_number;
 
-				// Calculate the weight of the point
-				weight = one_over_sigma * (stored_gamma_values[x] - gamma_k);
-			}
+	// 			// Calculate the weight of the point
+	// 			weight = one_over_sigma * (stored_gamma_values[x] - gamma_k);
+	// 		}
 
-			// sum_weights_[idx] += weight;
-			// sum_weights_[idx] = (1/sqrt(residual+1.0));
+	// 		// sum_weights_[idx] += weight;
+	// 		// sum_weights_[idx] = (1/sqrt(residual+1.0));
 
-			// printf("%f %f\n", residual, weight);
+	// 		// printf("%f %f\n", residual, weight);
 
-			// Store the weight of the point 
-			sigma_weights.emplace_back(weight);
-		}
+	// 		// Store the weight of the point 
+	// 		sigma_weights.emplace_back(weight);
+	// 	}
 
-		// If there are fewer than the minimum point close to the model,
-		// terminate.
-		if (sigma_inliers.size() < sample_size)
-			return false;
+	// 	// If there are fewer than the minimum point close to the model,
+	// 	// terminate.
+	// 	if (sigma_inliers.size() < sample_size)
+	// 		return false;
 
-		// Estimate the model parameters using weighted least-squares fitting
-		if (!estimator_.estimateModelNonminimal(
-			points_, // All input points
-			&(sigma_inliers)[0], // Points which have higher than 0 probability of being inlier
-			static_cast<int>(sigma_inliers.size()), // Number of possible inliers
-			&sigma_models, // Estimated models
-			&(sigma_weights)[0])) // Weights of points 
-		{
-			// If the estimation failed and the iteration was never successfull,
-			// terminate with failure.
-			if (iterations == 0)
-				return false;
-			// Otherwise, if the iteration was successfull at least one,
-			// simply break it. 
-			break;
-		}
+	// 	// Estimate the model parameters using weighted least-squares fitting
+	// 	if (!estimator_.estimateModelNonminimal(
+	// 		points_, // All input points
+	// 		&(sigma_inliers)[0], // Points which have higher than 0 probability of being inlier
+	// 		static_cast<int>(sigma_inliers.size()), // Number of possible inliers
+	// 		&sigma_models, // Estimated models
+	// 		&(sigma_weights)[0])) // Weights of points 
+	// 	{
+	// 		// If the estimation failed and the iteration was never successfull,
+	// 		// terminate with failure.
+	// 		if (iterations == 0)
+	// 			return false;
+	// 		// Otherwise, if the iteration was successfull at least one,
+	// 		// simply break it. 
+	// 		break;
+	// 	}
 
-		// Update the model parameters
-		polished_model = sigma_models[0];
-		// Clear the vector of models and keep only the best
-		sigma_models.clear();
-		// The model has been updated
-		updated = true;
-	}
+	// 	// Update the model parameters
+	// 	polished_model = sigma_models[0];
+	// 	// Clear the vector of models and keep only the best
+	// 	sigma_models.clear();
+	// 	// The model has been updated
+	// 	updated = true;
+	// }
 
 	///
 	std::vector<size_t> all_inliers(point_number);
@@ -882,6 +839,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	bool sum_model_valid = false;
 	bool is_sum_model_updated = false;
 	ModelScore  sum_score;
+	std::vector<double> resduals;
+	int inlier_num;
 
 	if (estimator_.estimateModelNonminimal(
 			points_,           // All input points
@@ -904,12 +863,13 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			refined_model_, // The estimated model
 			estimator_, // The estimator
 			sum_score.score, // The marginalized score
-			best_score_.score); // The score of the previous so-far-the-best model
+			inlier_num,
+			best_score_.score, 0, resduals); // The score of the previous so-far-the-best model
 
 			score_.score = sum_score.score;
 			// Update the iteration number
-		last_iteration_number =
-			log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+		last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+		// last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(inlier_num) / point_number, sample_size));
 		
 		// last_iteration_number = 100;
 
@@ -1047,7 +1007,108 @@ void FASTMAGSAC<DatumType, ModelEstimator>::getModelQualityPlusPlus(
 	}
 
 	// Calculate the score of the model from the total loss
-	score_ = 1.0 / total_loss;
+	score_ =  1.0 / total_loss;
+}
+
+
+
+template <class DatumType, class ModelEstimator>
+void FASTMAGSAC<DatumType, ModelEstimator>::getModelQualityPlusPlus(
+	const cv::Mat &points_, // All data points
+	const gcransac::Model &model_, // The model parameter
+	const ModelEstimator &estimator_, // The model estimator class
+	double &score_, // The score to be calculated
+	int &inlier_number_, //
+	const double &previous_best_score_, int type, std::vector<double> &resduals_) // The score of the previous so-far-the-best model 
+{
+	// The degrees of freedom of the data from which the model is estimated.
+	// E.g., for models coming from point correspondences (x1,y1,x2,y2), it is 4.
+	constexpr size_t degrees_of_freedom = ModelEstimator::getDegreesOfFreedom();
+	// A 0.99 quantile of the Chi^2-distribution to convert sigma values to residuals
+	constexpr double k = ModelEstimator::getSigmaQuantile();
+	// A multiplier to convert residual values to sigmas
+	constexpr double threshold_to_sigma_multiplier = 1.0 / k;
+	// Calculating k^2 / 2 which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	constexpr double squared_k_per_2 = k * k / 2.0;
+	// Calculating (DoF - 1) / 2 which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	constexpr double dof_minus_one_per_two = (degrees_of_freedom - 1.0) / 2.0;
+	// Calculating (DoF + 1) / 2 which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	constexpr double dof_plus_one_per_two = (degrees_of_freedom + 1.0) / 2.0;
+	// TODO: check
+	constexpr double C = 0.25;
+	// Calculating 2^(DoF - 1) which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	static const double two_ad_dof_minus_one = std::pow(2.0, dof_minus_one_per_two);
+	// Calculating 2^(DoF + 1) which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	static const double two_ad_dof_plus_one = std::pow(2.0, dof_plus_one_per_two);
+	// Calculate the gamma value of k
+	constexpr double gamma_value_of_k = ModelEstimator::getUpperIncompleteGammaOfK();
+	// Calculate the lower incomplete gamma value of k
+	constexpr double lower_gamma_value_of_k = ModelEstimator::getLowerIncompleteGammaOfK();
+	// The number of points provided
+	const int point_number = points_.rows;
+	// The previous best loss
+	const double previous_best_loss = -previous_best_score_;
+	// Convert the maximum threshold to a sigma value
+	const double maximum_sigma = threshold_to_sigma_multiplier * maximum_threshold;
+	// Calculate the squared maximum sigma
+	const double maximum_sigma_2 = maximum_sigma * maximum_sigma;
+	// Calculate \sigma_{max}^2 / 2
+	const double maximum_sigma_2_per_2 = maximum_sigma_2 / 2.0;
+	// Calculate 2 * \sigma_{max}^2
+	const double maximum_sigma_2_times_2 = maximum_sigma_2 * 2.0;
+	// Calculate the loss implied by an outlier
+	const double outlier_loss = maximum_sigma * two_ad_dof_minus_one  * lower_gamma_value_of_k;
+	// Calculating 2^(DoF + 1) / \sigma_{max} which will be used for the estimation and, 
+	// due to being constant, it is better to calculate it a priori.
+	const double two_ad_dof_plus_one_per_maximum_sigma = two_ad_dof_plus_one / maximum_sigma;
+	// The loss which a point implies
+	double loss = 0.0,
+		// The total loss regarding the current model
+		total_loss = 0.0;
+	const double interrupting_threshold = sqrt(maximum_threshold)*1.5;
+	// const double interrupting_threshold = 5.0;
+
+	// Iterate through all points to calculate the implied loss
+	inlier_number_ = 0;
+	resduals_.resize(point_number);
+	for (size_t point_idx = 0; point_idx < point_number; ++point_idx)
+	{
+		// Calculate the residual of the current point
+		const double residual =
+			estimator_.residualForScoring(points_.row(point_idx), model_.descriptor);
+		resduals_[point_idx] = residual;
+
+		// If the residual is smaller than the maximum threshold, consider it outlier
+		// and add the loss implied to the total loss.
+		if (maximum_threshold < residual)
+		{
+			loss = sqrt(maximum_threshold)/point_number;
+		}
+		else // Otherwise, consider the point inlier, and calculate the implied loss
+		{
+			loss = sqrt(residual)/point_number;
+			if (residual < interrupting_threshold)
+			{
+				inlier_number_++;
+			}
+		}
+
+		// Update the total loss
+		total_loss += loss;
+
+		// Break the validation if there is no chance of being better than the previous
+		// so-far-the-best model.
+		if (previous_best_loss < total_loss)
+			break;
+	}
+
+	// Calculate the score of the model from the total loss
+	score_ =  -total_loss;
 }
 
 template <class DatumType, class ModelEstimator>

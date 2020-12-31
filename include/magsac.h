@@ -35,7 +35,7 @@ public:
 		partition_number(5),
 		core_number(1),
 		number_of_irwls_iters(1),
-		interrupting_threshold(5.0),
+		interrupting_threshold(4.0),
 		last_iteration_number(0),
 		log_confidence(0),
 		point_number(0),
