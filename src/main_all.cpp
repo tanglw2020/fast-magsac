@@ -264,7 +264,15 @@ void runTest(
 			    10.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
-			    2.5);  // The inlier threshold for visualization.
+			    2.5, 10);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
+
+			fastMagsacHomographyFitting(
+			    ransac_confidence_,
+			    20.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5, 10);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
 			fastMagsacHomographyFitting(
@@ -272,15 +280,7 @@ void runTest(
 			    50.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
-			    2.5);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
-
-			fastMagsacHomographyFitting(
-			    ransac_confidence_,
-			    50.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5);  // The inlier threshold for visualization.
+			    2.5, 10);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
 			// printf("\n3. Running gcransac threshold (%f px)\n", 50.0);
@@ -1155,9 +1155,11 @@ void fastMagsacHomographyFitting(
 		const gcransac::utils::RANSACStatistics &statistics =
 			magsac.getRansacStatistics();
 
-		printf("fmagsac: %0.5fs %d  %.5fpx  %.6f %d\n", elapsed_seconds.count(),
+		printf("fmagsac: %0.5fs %d  %.5fpx  %.6f %d %d\n", elapsed_seconds.count(),
 			   iteration_number, rmse,  score.score, 
-			   static_cast<int>(statistics.accepted_models));
+			   static_cast<int>(statistics.accepted_models),
+			   static_cast<int>(statistics.better_models)
+			   );
 
 		// Visualization part.
 		// Inliers are selected using threshold and the estimated model.

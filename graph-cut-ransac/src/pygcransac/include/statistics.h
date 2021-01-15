@@ -47,7 +47,8 @@ namespace gcransac
 				iteration_number,
 				neighbor_number,
 				accepted_models,
-				rejected_models;
+				rejected_models,
+				better_models;
 
 			std::string main_sampler_name,
 				local_optimizer_sampler_name;
@@ -63,6 +64,7 @@ namespace gcransac
 				neighbor_number(0),
 				accepted_models(0),
 				rejected_models(0),
+				better_models(0),
 				processing_time(0.0)
 			{
 
