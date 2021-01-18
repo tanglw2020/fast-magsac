@@ -652,7 +652,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// Occupy the maximum required memory to avoid doing it later.
 	residuals.reserve(point_number);
 
-	const int weight_type = 4;
+	const int weight_type = 2;
 	interrupting_threshold = sqrt(current_maximum_sigma)*1.5;
 
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
@@ -1120,7 +1120,7 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 			return 0;
 	case 2:
 		if(residual<threshold)
-			return (1/(exp(-residual*residual/threshold/threshold/2)));
+			return (1/(exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2)));
 		else
 			return 0;
 	case 3:
@@ -1152,6 +1152,7 @@ float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> r
     return;
 
   double maximum_threshold_step = maximum_threshold_ / split_number_;
+  float local_inlier_th = maximum_threshold_;
   residual_splits_.resize(split_number_ + 1);
 
   for (int point_idx = 0; point_idx < residuals_.size(); ++point_idx) {
@@ -1165,8 +1166,7 @@ float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> r
       residual_splits_[idx]++;
   }
 
-  int cur_max_split_cnt = 0;
-  int i;
+  int cur_max_split_cnt = 0, i;
   inllier_num_ = 0;
   for (i = 0; i < residual_splits_.size() - 3; i++) {
     // printf("%d\t", residual_splits_[i]);
@@ -1175,19 +1175,23 @@ float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> r
 
     cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
     float split_th = cur_max_split_cnt * 0.15;
-    if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
-			return (i+1)*maximum_threshold_step;
-    //   printf("||\t");  break;
+    // if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
+    if (split_th > residual_splits_[i + 1]) {
+			local_inlier_th =  (i+1)*maximum_threshold_step;
+    //   printf("||\t"); 
+	 break;
     }
   }
 
-  return maximum_threshold_;
 //   i++;
 //   for(; i<residual_splits_.size(); i++)
 //   {
 // 	  printf("%d\t", residual_splits_[i]);
 //   }
 //   printf("\n");
+
+  return local_inlier_th;
+
 
 //   std::vector<int> residual_splits_cumsum(residual_splits_);
 //   for(int i=1; i<residual_splits_cumsum.size(); i++)

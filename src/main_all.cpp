@@ -256,32 +256,32 @@ void runTest(
 			    50.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
-			    2.5);  // The inlier threshold for visualization.
+			    2.5,20);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			fastMagsacHomographyFitting(
-			    ransac_confidence_,
-			    10.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5, 10);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
+			// fastMagsacHomographyFitting(
+			//     ransac_confidence_,
+			//     10.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5, 10);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
 
 			fastMagsacHomographyFitting(
 			    ransac_confidence_,
 			    20.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
-			    2.5, 10);  // The inlier threshold for visualization.
+			    2.5, 20);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			fastMagsacHomographyFitting(
-			    ransac_confidence_,
-			    50.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5, 10);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
+			// fastMagsacHomographyFitting(
+			//     ransac_confidence_,
+			//     50.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5, 10);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
 
 			// printf("\n3. Running gcransac threshold (%f px)\n", 50.0);
 
@@ -316,9 +316,37 @@ void runTest(
 				0.975, // The weight of the spatial coherence term
 				8,	   // The radius of the neighborhood ball
 				-1, 0.01, true, false, false);
-
+			printf("--------------------------------\n");
+			// loransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	6.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false);
 			// printf("--------------------------------\n");
-
+			// loransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	12.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false);
+			// printf("--------------------------------\n");
+			// loransacHomographyFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	24.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false);
+			// printf("--------------------------------\n");
 			// loransacHomographyFitting(
 			// 	ransac_confidence_, // The confidence required
 			// 	scene,				// The name of the current test scene
