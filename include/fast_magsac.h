@@ -676,7 +676,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 		std::vector<int> resdual_splits;
 		// printf("ite:%d inlier%d\n", statistics.iteration_number, score_.inlier_number);
-		float local_inlier_th = splitResdauls(resdual_all, 40, 40, resdual_splits, inlier_number);
+		// float local_inlier_th = splitResdauls(resdual_all, 40, 40, resdual_splits, inlier_number);
+		// float local_inlier_th = splitResdauls(resdual_all, 6, 20, resdual_splits, inlier_number);
 		score_.inlier_number = inlier_number;
 
 		if(inlier_number<best_score_.inlier_number)
@@ -692,8 +693,8 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		// Collect the points which are closer than the threshold which the maximum sigma implies
 		for (int point_idx = 0; point_idx < point_number; ++point_idx)
 		{
-			sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], local_inlier_th, weight_type);
-			// sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], current_maximum_sigma, weight_type);
+			// sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], local_inlier_th, weight_type);
+			sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold, weight_type);
 		}
 	}
 
@@ -767,7 +768,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 			score_.score = sum_score.score;
 			// Update the iteration number
-		last_iteration_number = 5*log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+		last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
 		// last_iteration_number = 3 * log_confidence / log(1.0 - std::pow(static_cast<double>(inlier_num) / point_number, sample_size));
 		
 		// last_iteration_number = 100;
@@ -1174,7 +1175,8 @@ float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> r
 	inllier_num_ += residual_splits_[i];
 
     cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
-    float split_th = cur_max_split_cnt * 0.15;
+    // float split_th = cur_max_split_cnt * 0.15;
+    float split_th = cur_max_split_cnt * 0.3;
     // if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
     if (split_th > residual_splits_[i + 1]) {
 			local_inlier_th =  (i+1)*maximum_threshold_step;
