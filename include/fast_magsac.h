@@ -167,6 +167,9 @@ public:
 
 	float splitResdauls(std::vector<double> resduals_, double maximum_threshold_, int split_number_,
 						std::vector<int> &resdual_splits_, int &inllier_num_);
+	float getWeightFromResiduals(std::vector<double> residuals_, double maximum_threshold_,
+                                                          int split_number_, std::vector<int> &residual_splits_, int &inllier_num_,
+														  std::vector<double> &weights_);
 
     size_t number_of_irwls_iters;
 	gcransac::utils::RANSACStatistics statistics;
@@ -653,11 +656,11 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	residuals.reserve(point_number);
 
 	const int weight_type = 2;
-	interrupting_threshold = sqrt(current_maximum_sigma)*1.5;
+	// interrupting_threshold = sqrt(current_maximum_sigma)*1.5;
+	interrupting_threshold = (current_maximum_sigma);
 
 	// If it is not the first run, consider the previous best and interrupt the validation when there is no chance of being better
 	// if (best_score_.inlier_number > 0)
-	{
 		// Number of points close to the previous so-far-the-best model. 
 		// This model should have more inliers.
 		int points_remaining = best_score_.inlier_number;
@@ -672,33 +675,36 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		inlier_number,
 		best_score_.score, 0, resdual_all);
 
+		score_.inlier_number = inlier_number;
 		score_.init_score = score;
+		if(inlier_number<best_score_.inlier_number || inlier_number<estimator_.nonMinimalSampleSize())
+		// if(score<best_score_.init_score || inlier_number<estimator_.nonMinimalSampleSize())
+		{
+			return false;
+		} 
+	
+		statistics.accepted_models++;
 
 		std::vector<int> resdual_splits;
 		// printf("ite:%d inlier%d\n", statistics.iteration_number, score_.inlier_number);
 		// float local_inlier_th = splitResdauls(resdual_all, 40, 40, resdual_splits, inlier_number);
-		// float local_inlier_th = splitResdauls(resdual_all, 6, 20, resdual_splits, inlier_number);
-		score_.inlier_number = inlier_number;
+		// float local_inlier_th = splitResdauls(resdual_all, 8, 20, resdual_splits, inlier_number);
+		float local_inlier_th = splitResdauls(resdual_all, 8, 16, resdual_splits, inlier_number);
 
-		if(inlier_number<best_score_.inlier_number)
-		// if(score<best_score_.init_score)
-		{
-			return false;
-		} 
+		// printf("local_inlier_th: %f %d\n", local_inlier_th, inlier_number);
 
-		// splitResdauls(resdual_all, this->maximum_threshold, 8, resdual_splits);
-		// std::vector<int> resdual_splits;
-		// splitResdauls(resdual_all, 16, 8, resdual_splits);
+		// local_inlier_th = getWeightFromResiduals(resdual_all, 6, 16, resdual_splits, inlier_number, sum_weights_);
 
 		// Collect the points which are closer than the threshold which the maximum sigma implies
+		std::vector<double>  local_weights_1(point_number),  local_weights_2(point_number);
 		for (int point_idx = 0; point_idx < point_number; ++point_idx)
 		{
 			// sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], local_inlier_th, weight_type);
 			sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold, weight_type);
+			// local_weights_1[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*0.8, weight_type);
+			// local_weights_2[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*1.5, weight_type);
 		}
-	}
 
-	statistics.accepted_models++;
 
 	// Models fit by weighted least-squares fitting
 	std::vector<gcransac::Model> sigma_models;
@@ -738,6 +744,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	ModelScore  sum_score;
 	std::vector<double> refine_residuals;
 	int inlier_num;
+	double local_score1=-1, local_score2=-1, local_score3=-1;
 
 	if (estimator_.estimateModelNonminimal(
 			points_,           // All input points
@@ -752,65 +759,95 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 
 			refined_model_ = sum_models[0];
 
-			// std::cout<< "-------------------" << std::endl;
-			// std::cout<< refined_model_.descriptor << std::endl;
-			// std::cout<< "-------------------" << std::endl;
-
 			getModelQualityPlusPlus(points_, // All the input points
 			refined_model_, // The estimated model
 			estimator_, // The estimator
-			sum_score.score, // The marginalized score
+			local_score1, // The marginalized score
 			inlier_num,
 			best_score_.score, 0, refine_residuals); // The score of the previous so-far-the-best model
 
-			// std::vector<int> resdual_splits;
-			// float local_inlier_th = splitResdauls(refine_residuals, 20, 60, resdual_splits, inlier_num);
+			score_.score = local_score1;
 
-			score_.score = sum_score.score;
 			// Update the iteration number
 		last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
 		// last_iteration_number = 3 * log_confidence / log(1.0 - std::pow(static_cast<double>(inlier_num) / point_number, sample_size));
 		
-		// last_iteration_number = 100;
-
 		// std::vector<int> resdual_splits;
 		// printf("inlier_num:%d  score:%f\n", inlier_num, score_.score);
-		// printf("%d::", best_score_.score<score_.score);
+		// printf("better: %d \n", best_score_.score<score_.score);
+
 		// splitResdauls(refine_residuals, 32, 16, resdual_splits);
 
-		return true;
 		}
 	}
 
-	// bool is_model_updated = false;
-
-	// if (updated && // If the model has been updated
-	// 	estimator_.isValidModel(polished_model,
-	// 		points_,
-	// 		sigma_inliers,
-	// 		&(sigma_inliers[0]),
-	// 		interrupting_threshold,
-	// 		is_model_updated)) // and it is valid
+	// if (estimator_.estimateModelNonminimal(
+	// 		points_,           // All input points
+	// 		&(all_inliers)[0], // Points which have higher than 0 probability of being inlier
+	// 		static_cast<int>(all_inliers.size()), // Number of possible inliers
+	// 		&sum_models,                          // Estimated models
+	// 		&(local_weights_1)[0]))                  // Weights of points
 	// {
-	// 	// Return the refined model
-	// 	refined_model_ = polished_model;
+	// 	if (estimator_.isValidModel(sum_models[0], points_, all_inliers, &(all_inliers[0]),
+	// 								interrupting_threshold, is_sum_model_updated)) {
+	// 		sum_model_valid = true;
 
-	// 	// Calculate the score of the model and the implied iteration number
-	// 	double marginalized_iteration_number;
-	// 	getModelQualityPlusPlus(points_, // All the input points
-	// 		refined_model_, // The estimated model
+	// 		getModelQualityPlusPlus(points_, // All the input points
+	// 		sum_models[0], // The estimated model
 	// 		estimator_, // The estimator
-	// 		score_.score, // The marginalized score
-	// 		best_score_.score); // The score of the previous so-far-the-best model
+	// 		local_score2, // The marginalized score
+	// 		inlier_num,
+	// 		best_score_.score, 0, refine_residuals); // The score of the previous so-far-the-best model
 
-	// 	// printf("score: %f  %f  %f\n", score_.score, sum_score.score, score_.score-sum_score.score);
-			
-	// 	// Update the iteration number
-	// 	last_iteration_number =
-	// 		log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
-	// 	// last_iteration_number = 100;
-	// 	return true;
+	// 		if(local_score2 > score_.score)
+	// 		{
+	// 			refined_model_ = sum_models[0];
+	// 			score_.score = local_score2;
+	// 		} 
+	// 		// Update the iteration number
+	// 	last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+		
+	// 	// std::vector<int> resdual_splits;
+	// 	// printf("inlier_num:%d  score:%f\n", inlier_num, score_.score);
+	// 	// printf("better: %d \n", best_score_.score<score_.score);
+	// 	}
 	// }
+
+
+	// 	if (estimator_.estimateModelNonminimal(
+	// 		points_,           // All input points
+	// 		&(all_inliers)[0], // Points which have higher than 0 probability of being inlier
+	// 		static_cast<int>(all_inliers.size()), // Number of possible inliers
+	// 		&sum_models,                          // Estimated models
+	// 		&(local_weights_2)[0]))                  // Weights of points
+	// {
+	// 	if (estimator_.isValidModel(sum_models[0], points_, all_inliers, &(all_inliers[0]),
+	// 								interrupting_threshold, is_sum_model_updated)) {
+	// 		sum_model_valid = true;
+
+	// 		getModelQualityPlusPlus(points_, // All the input points
+	// 		sum_models[0], // The estimated model
+	// 		estimator_, // The estimator
+	// 		local_score3, // The marginalized score
+	// 		inlier_num,
+	// 		best_score_.score, 0, refine_residuals); // The score of the previous so-far-the-best model
+
+	// 		if(local_score3 > score_.score)
+	// 		{
+	// 			refined_model_ = sum_models[0];
+	// 			score_.score = local_score3;
+	// 		} 
+	// 		// Update the iteration number
+	// 	last_iteration_number = log_confidence / log(1.0 - std::pow(static_cast<double>(score_.inlier_number) / point_number, sample_size));
+		
+	// 	// std::vector<int> resdual_splits;
+	// 	// printf("inlier_num:%d  score:%f\n", inlier_num, score_.score);
+	// 	// printf("better: %d \n", best_score_.score<score_.score);
+	// 	}
+	// }
+
+	if(score_.score>0) return true;
+
 	return false;
 }
 
@@ -976,7 +1013,7 @@ void FASTMAGSAC<DatumType, ModelEstimator>::getModelQualityPlusPlus(
 		// The total loss regarding the current model
 		total_loss = 0.0;
 	// const double interrupting_threshold = sqrt(maximum_threshold)*1.5;
-	const double interrupting_threshold = (maximum_threshold);
+	const double interrupting_threshold = sqrt(maximum_threshold);
 	// const double interrupting_threshold = 5.0;
 
 	// Iterate through all points to calculate the implied loss
@@ -987,17 +1024,18 @@ void FASTMAGSAC<DatumType, ModelEstimator>::getModelQualityPlusPlus(
 		// Calculate the residual of the current point
 		const double residual =
 			estimator_.residualForScoring(points_.row(point_idx), model_.descriptor);
+			// estimator_.squaredResidual(points_.row(point_idx), model_.descriptor);
 		resduals_[point_idx] = residual;
 
 		// If the residual is smaller than the maximum threshold, consider it outlier
 		// and add the loss implied to the total loss.
 		if (maximum_threshold < residual)
 		{
-			loss = sqrt(maximum_threshold)/point_number;
+			loss = (maximum_threshold)/point_number;
 		}
 		else // Otherwise, consider the point inlier, and calculate the implied loss
 		{
-			loss = sqrt(residual)/point_number;
+			loss = (residual)/point_number;
 			if (residual < interrupting_threshold)
 			{
 				inlier_number_++;
@@ -1111,7 +1149,7 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 	{
 	case 0:
 		if(residual<threshold)
-			return (1/(pow(residual+1, 0.5)));
+			return (1/(pow(residual+1, 0.5))) + 0.1;
 		else
 			return 0;
 	case 1:
@@ -1121,13 +1159,13 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 			return 0;
 	case 2:
 		if(residual<threshold)
-			return (1/(exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2)));
+			return 0.8+((exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2)));
 		else
 			return 0;
 	case 3:
 		if(residual<threshold)
 		{
-			double diff = -residual+threshold;
+			double diff = -residual*residual+threshold*threshold;
 			return (abs(diff));
 		}
 		else
@@ -1137,14 +1175,162 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 		{
 			return (1.0);
 		}
+		else if(residual > this->maximum_threshold)
+		{
+			return 0;
+		}
+		else
+		{
+			return 0;
+		}
+	case 5:
+		if(residual<threshold)
+			return 0.8+((exp(-residual/this->maximum_threshold)));
 		else
 			return 0;
+		
 	default:
 		return 0;
 	}
 }
 
 
+template <class DatumType, class ModelEstimator>
+float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> residuals_, double maximum_threshold_,
+                                                          int split_number_, std::vector<int> &residual_splits_, int &inllier_num_) {
+  residual_splits_.clear();
+  if (maximum_threshold_ < 0 || split_number_ < 2)
+    return;
+
+  double maximum_threshold_step = maximum_threshold_ / split_number_;
+  float local_inlier_th = maximum_threshold_;
+  residual_splits_.resize(split_number_ + 1);
+
+  // generate histogram of residual
+  for (int point_idx = 0; point_idx < residuals_.size(); ++point_idx) {
+
+    int idx = int(residuals_[point_idx] / maximum_threshold_step);
+    if ((idx < 0))
+      continue;
+    if ((idx > split_number_))
+      residual_splits_[split_number_];
+    else
+      residual_splits_[idx]++;
+  }
+
+  int cur_max_split_cnt = 0, i;
+  inllier_num_ = 0;
+
+  if (0) {
+    for (i = 0; i < residual_splits_.size() - 3; i++) {
+      printf("%d\t", residual_splits_[i]);
+
+      inllier_num_ += residual_splits_[i];
+
+      cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
+      float split_th = cur_max_split_cnt * 0.15;
+    //   float split_th = cur_max_split_cnt * 0.08;
+      // if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
+      if (split_th > residual_splits_[i + 1]) {
+        local_inlier_th = (i + 1) * maximum_threshold_step;
+          printf("||\t");
+        break;
+      }
+    }
+
+	i++;
+	for(; i<residual_splits_.size(); i++)
+	{
+		printf("%d\t", residual_splits_[i]);
+	}
+	printf("\n");
+
+  }
+  else
+  {
+	  for (i = 0; i < residual_splits_.size() - 3; i++) {
+      inllier_num_ += residual_splits_[i];
+
+      cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
+      float split_th = cur_max_split_cnt * 0.15;
+    //   float split_th = cur_max_split_cnt * 0.08;
+
+    //   if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
+      if (split_th > residual_splits_[i + 1]) {
+        local_inlier_th = (i + 1) * maximum_threshold_step;
+        break;
+      }
+    }
+  }
+  
+  return local_inlier_th;
+}
+
+
+
+template <class DatumType, class ModelEstimator>
+float FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromResiduals(std::vector<double> residuals_, double maximum_threshold_,
+                                                          int split_number_, std::vector<int> &residual_splits_, int &inllier_num_,
+														  std::vector<double> &weights_) {
+  residual_splits_.clear();
+  inllier_num_ = 0;
+  if (maximum_threshold_ < 0 || split_number_ < 2)
+    return 0;
+
+  double maximum_threshold_step = maximum_threshold_ / split_number_;
+  float local_inlier_th = maximum_threshold_;
+  residual_splits_.resize(split_number_ + 1);
+  std::vector<double> density_residuals(split_number_ + 1);
+
+  // generate histogram of residual
+  for (int point_idx = 0; point_idx < residuals_.size(); ++point_idx) {
+
+    int idx = int(residuals_[point_idx] / maximum_threshold_step);
+
+    if (idx < 0) continue;
+
+    if (idx <= split_number_)
+	{
+      residual_splits_[idx]++;
+	  inllier_num_++;
+	}
+  }
+
+  int last_nonzero = -1;	
+  for(int i=0; i<density_residuals.size(); i++)
+  {
+	  if(residual_splits_[i]>0)
+	  {
+		//   density_residuals[i] = residual_splits_[i]*1.0/(i-last_nonzero);
+		  density_residuals[i] = residual_splits_[i]*1.0;
+		  last_nonzero = i;
+		//   printf("%d:%0.4f\t", residual_splits_[i], density_residuals[i]);
+	  }
+  }
+//   printf("\n");
+
+
+  // get the for histogram of residual
+  for (int point_idx = 0; point_idx < residuals_.size(); ++point_idx) {
+
+    int idx = int(residuals_[point_idx] / maximum_threshold_step);
+
+    if (idx < 0 || idx > split_number_)
+	{
+		weights_[point_idx] = 0.0;
+	} 
+	else
+	{
+		weights_[point_idx] = (sqrt(density_residuals[idx]));
+	}
+  }
+  
+  return local_inlier_th;
+}
+
+
+
+/*
 template <class DatumType, class ModelEstimator>
 float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> residuals_, double maximum_threshold_,
                                                           int split_number_, std::vector<int> &residual_splits_, int &inllier_num_) {
@@ -1169,56 +1355,49 @@ float FASTMAGSAC<DatumType, ModelEstimator>::splitResdauls(std::vector<double> r
 
   int cur_max_split_cnt = 0, i;
   inllier_num_ = 0;
-  for (i = 0; i < residual_splits_.size() - 3; i++) {
-    // printf("%d\t", residual_splits_[i]);
 
-	inllier_num_ += residual_splits_[i];
+  if (0) {
+    for (i = 0; i < residual_splits_.size() - 3; i++) {
+      printf("%d\t", residual_splits_[i]);
 
-    cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
-    // float split_th = cur_max_split_cnt * 0.15;
-    float split_th = cur_max_split_cnt * 0.3;
-    // if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
-    if (split_th > residual_splits_[i + 1]) {
-			local_inlier_th =  (i+1)*maximum_threshold_step;
-    //   printf("||\t"); 
-	 break;
+      inllier_num_ += residual_splits_[i];
+
+      cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
+      // float split_th = cur_max_split_cnt * 0.15;
+      float split_th = cur_max_split_cnt * 0.15;
+      // if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
+      if (split_th > residual_splits_[i + 1]) {
+        local_inlier_th = (i + 1) * maximum_threshold_step;
+          printf("||\t");
+        break;
+      }
+    }
+
+	i++;
+	for(; i<residual_splits_.size(); i++)
+	{
+		printf("%d\t", residual_splits_[i]);
+	}
+	printf("\n");
+
+  }
+  else
+  {
+	  for (i = 0; i < residual_splits_.size() - 3; i++) {
+      inllier_num_ += residual_splits_[i];
+
+      cur_max_split_cnt = cur_max_split_cnt > residual_splits_[i] ? cur_max_split_cnt : residual_splits_[i];
+      float split_th = cur_max_split_cnt * 0.15;
+    //   float split_th = cur_max_split_cnt * 0.08;
+
+      if (split_th > residual_splits_[i + 1] && split_th > residual_splits_[i + 2]) {
+    //   if (split_th > residual_splits_[i + 1]) {
+        local_inlier_th = (i + 1) * maximum_threshold_step;
+        break;
+      }
     }
   }
-
-//   i++;
-//   for(; i<residual_splits_.size(); i++)
-//   {
-// 	  printf("%d\t", residual_splits_[i]);
-//   }
-//   printf("\n");
-
+  
   return local_inlier_th;
-
-
-//   std::vector<int> residual_splits_cumsum(residual_splits_);
-//   for(int i=1; i<residual_splits_cumsum.size(); i++)
-//   {
-// 	  residual_splits_cumsum[i] = residual_splits_cumsum[i] + residual_splits_cumsum[i-1];
-// 	//   printf("%d\t", residual_splits_cumsum[i]);
-//   }
-// //   printf("\n");
-
-//   for(int i=0; i<residual_splits_cumsum.size(); i++)
-//   {
-// 	  float d1 = residual_splits_cumsum[i]*1.0/(i+1), d2;
-// 	//   if(2*i+1>residual_splits_cumsum.size()-1)
-// 	//   {
-// 	//   	d2 = (residual_splits_cumsum[2*i+1]-residual_splits_cumsum[i])*1.0/(i+1);
-// 	//   }
-// 	//   else
-// 	//   {
-// 	// 	d2 = (residual_splits_cumsum[residual_splits_cumsum.size()-1]-residual_splits_cumsum[i])*1.0/(residual_splits_cumsum.size()-1 - i);
-// 	//   }
-	
-// 	  printf("%.2f\t", d1);
-//   }
-//   printf("\n");
-
-  int inllier_cnt = 0;
-
 }
+*/

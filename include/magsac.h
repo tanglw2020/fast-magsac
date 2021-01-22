@@ -597,7 +597,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// TODO: check
 	constexpr double C = ModelEstimator::getC();
 	// The size of a minimal sample used for the estimation
-	constexpr size_t sample_size = estimator_.sampleSize();
+	constexpr size_t sample_size = estimator_.nonMinimalSampleSize();
 	// Calculating 2^(DoF - 1) which will be used for the estimation and, 
 	// due to being constant, it is better to calculate it a priori.
 	static const double two_ad_dof = std::pow(2.0, dof_minus_one_per_two);

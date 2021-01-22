@@ -418,15 +418,22 @@ void runTest(
 				drawing_threshold_, 5); // The inlier threshold for visualization.
 			printf("-------------------------------\n");
 
+			// fastMagsacFundamentalMatrixFitting(
+			//     ransac_confidence_,
+			//     5.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5, 5);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
+
 			fastMagsacFundamentalMatrixFitting(
 			    ransac_confidence_,
-			    5.0,  // The maximum sigma value allowed in MAGSAC
+			    8.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
 			    2.5, 5);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 			
-
 			loransacFundamentalMatrixFitting(
 				ransac_confidence_, // The confidence required
 				scene,				// The name of the current test scene
@@ -435,7 +442,7 @@ void runTest(
 				1.0,   // The used inlier-outlier threshold
 				0.975, // The weight of the spatial coherence term
 				8,	   // The radius of the neighborhood ball
-				-1, 0.01, true, false, false, 2);
+				-1, 0.01, false, false, false, 5);
 			printf("--------------------------------\n");
 
 		}
@@ -462,7 +469,7 @@ void runTest(
 				drawing_threshold_); // The inlier threshold for visualization.
 		}
 
-		printf("\nPress a button to continue.\n\n");
+		// printf("\nPress a button to continue.\n\n");
 		// cv::waitKey(0);
 	}
 }
@@ -812,7 +819,7 @@ void magsacFundamentalMatrixFitting(double ransac_confidence_,
 	MAGSAC<cv::Mat, magsac::utils::DefaultFundamentalMatrixEstimator> magsac;
 	magsac.setMaximumThreshold(
 		maximum_threshold_);	   // The maximum noise scale sigma allowed
-	magsac.setIterationLimit(1e4); // Iteration limit to interrupt the cases when
+	magsac.setIterationLimit(5000); // Iteration limit to interrupt the cases when
 								   // the algorithm run too long.
 
 	int iteration_number = 0; // Number of iterations required
