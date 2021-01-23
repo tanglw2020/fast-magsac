@@ -415,7 +415,7 @@ void runTest(
 				5.0,				 // The maximum sigma value allowed in MAGSAC
 				scene,				 // The scene type
 				draw_results_,		 // A flag to draw and show the results
-				drawing_threshold_, 5); // The inlier threshold for visualization.
+				drawing_threshold_, 2); // The inlier threshold for visualization.
 			printf("-------------------------------\n");
 
 			// fastMagsacFundamentalMatrixFitting(
@@ -426,13 +426,13 @@ void runTest(
 			//     2.5, 5);  // The inlier threshold for visualization.
 			// printf("--------------------------------\n");
 
-			fastMagsacFundamentalMatrixFitting(
-			    ransac_confidence_,
-			    8.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5, 5);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
+			// fastMagsacFundamentalMatrixFitting(
+			//     ransac_confidence_,
+			//     8.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5, 5);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
 			
 			loransacFundamentalMatrixFitting(
 				ransac_confidence_, // The confidence required
@@ -440,6 +440,26 @@ void runTest(
 				false,				// A flag determining if the results should be visualized
 				2.5,
 				1.0,   // The used inlier-outlier threshold
+				0.975, // The weight of the spatial coherence term
+				8,	   // The radius of the neighborhood ball
+				-1, 0.01, false, false, false, 5);
+			printf("--------------------------------\n");
+				loransacFundamentalMatrixFitting(
+				ransac_confidence_, // The confidence required
+				scene,				// The name of the current test scene
+				false,				// A flag determining if the results should be visualized
+				2.5,
+				5.0,   // The used inlier-outlier threshold
+				0.975, // The weight of the spatial coherence term
+				8,	   // The radius of the neighborhood ball
+				-1, 0.01, false, false, false, 5);
+			printf("--------------------------------\n");
+			loransacFundamentalMatrixFitting(
+				ransac_confidence_, // The confidence required
+				scene,				// The name of the current test scene
+				false,				// A flag determining if the results should be visualized
+				2.5,
+				8.0,   // The used inlier-outlier threshold
 				0.975, // The weight of the spatial coherence term
 				8,	   // The radius of the neighborhood ball
 				-1, 0.01, false, false, false, 5);
