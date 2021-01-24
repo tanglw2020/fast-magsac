@@ -791,7 +791,6 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 				// Get the position of the gamma value in the lookup table
 				size_t x = round(precision_of_stored_gammas * squared_residual / squared_sigma_max_2);
 				// Put the index of the point into the vector of points used for the least squares fitting
-				sigma_inliers.emplace_back(idx);
 
 				// If the sought gamma value is not stored in the lookup, return the closest element
 				if (stored_gamma_number < x)
@@ -802,6 +801,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 			}
 
 			// Store the weight of the point 
+			sigma_inliers.emplace_back(idx);
 			sigma_weights.emplace_back(weight);
 		}
 
@@ -810,6 +810,7 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		if (sigma_inliers.size() < sample_size)
 			return false;
 
+		// printf("%d %d %d\n", sigma_inliers.size(), sigma_weights.size(), points_.rows);
 		// Estimate the model parameters using weighted least-squares fitting
 		if (!estimator_.estimateModelNonminimal(
 			points_, // All input points

@@ -135,6 +135,7 @@ void fastMagsacFundamentalMatrixFitting(double ransac_confidence_,
 							 double drawing_threshold_ = 2,
 							 const int repeat_number_ = 10);
 
+
 // A method applying MAGSAC for homography estimation to one of the built-in
 // scenes
 void fastMagsacHomographyFitting(double ransac_confidence_,
@@ -424,40 +425,40 @@ void runTest(
 			printf("-------------------------------\n");
 
 			// Apply MAGSAC with fairly high maximum threshold
-			magsacFundamentalMatrixFitting(
-				ransac_confidence_,	 // The required confidence in the results
-				5.0,				 // The maximum sigma value allowed in MAGSAC
-				scene,				 // The scene type
-				draw_results_,		 // A flag to draw and show the results
-				drawing_threshold_, 2); // The inlier threshold for visualization.
-			printf("-------------------------------\n");
+			// magsacFundamentalMatrixFitting(
+			// 	ransac_confidence_,	 // The required confidence in the results
+			// 	5.0,				 // The maximum sigma value allowed in MAGSAC
+			// 	scene,				 // The scene type
+			// 	draw_results_,		 // A flag to draw and show the results
+			// 	drawing_threshold_, 5); // The inlier threshold for visualization.
+			// printf("-------------------------------\n");
 
 			fastMagsacFundamentalMatrixFitting(
 			    ransac_confidence_,
-			    5.0,  // The maximum sigma value allowed in MAGSAC
+			    6.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
 			    2.5, 5);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			fastMagsacFundamentalMatrixFitting(
-			    ransac_confidence_,
-			    8.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5, 5);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
+			// fastMagsacFundamentalMatrixFitting(
+			//     ransac_confidence_,
+			//     8.0,  // The maximum sigma value allowed in MAGSAC
+			//     scene, // The scene type
+			//     false, // A flag to draw and show the results
+			//     2.5, 5);  // The inlier threshold for visualization.
+			// printf("--------------------------------\n");
 			
-			loransacFundamentalMatrixFitting(
-				ransac_confidence_, // The confidence required
-				scene,				// The name of the current test scene
-				false,				// A flag determining if the results should be visualized
-				2.5,
-				1.0,   // The used inlier-outlier threshold
-				0.975, // The weight of the spatial coherence term
-				8,	   // The radius of the neighborhood ball
-				-1, 0.01, false, false, false, 2);
-			printf("--------------------------------\n");
+			// loransacFundamentalMatrixFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	1.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false, 2);
+			// printf("--------------------------------\n");
 
 			// gcransacFundamentalMatrixFitting(
 			// 	ransac_confidence_, // The confidence required
@@ -1419,6 +1420,23 @@ void fastMagsacFundamentalMatrixFitting(
 
 	for (int repeat_i = 0; repeat_i < repeat_number_; repeat_i++)
 	{
+		int cell_number_in_neighborhood_graph_ = 8;
+		gcransac::neighborhood::GridNeighborhoodGraph neighborhood(
+			&points,
+			image1.cols / static_cast<double>(cell_number_in_neighborhood_graph_),
+			image1.rows / static_cast<double>(cell_number_in_neighborhood_graph_),
+			image2.cols / static_cast<double>(cell_number_in_neighborhood_graph_),
+			image2.rows / static_cast<double>(cell_number_in_neighborhood_graph_),
+			cell_number_in_neighborhood_graph_);
+
+		// Checking if the neighborhood graph is initialized successfully.
+		if (!neighborhood.isInitialized())
+		{
+			fprintf(stderr,
+					"The neighborhood graph is not initialized successfully.\n");
+			return;
+		}
+
 		// Initialize the sampler used for selecting minimal samples
 		gcransac::sampler::UniformSampler main_sampler(&points);
 
@@ -1441,7 +1459,8 @@ void fastMagsacFundamentalMatrixFitting(
 									   // in each iteration
 				   model,			   // The estimated model
 				   iteration_number,   // The number of iterations
-				   score);			   // The score of the estimated model
+				   score,			   // The score of the estimated model
+				   &neighborhood);			   
 		end = std::chrono::system_clock::now();
 
 		std::chrono::duration<double> elapsed_seconds = end - start;
