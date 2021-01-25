@@ -185,6 +185,13 @@ public:
 		double &energy_,
 		const gcransac::neighborhood::GridNeighborhoodGraph *neighborhood_graph_); // The resulting energy
 
+	void labeling(const cv::Mat &points_, // The input data points
+		std::vector<double> &residuals_, // The resulting inlier set
+		double threshold_, // The threshold_ for the inlier-outlier decision
+		std::vector<size_t> &inliers_, // The resulting inlier set
+		std::vector<double> &weights_, // The resulting inlier set
+		const gcransac::neighborhood::GridNeighborhoodGraph *neighborhood_graph_);
+
 	// Return the constant reference of the scoring function
 	const gcransac::utils::RANSACStatistics &getRansacStatistics() const { return statistics; }
 
@@ -240,6 +247,50 @@ protected:
 		gcransac::sampler::Sampler<cv::Mat, size_t> &sampler_);
 };
 
+template <class DatumType, class ModelEstimator>
+void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // The input data points
+		std::vector<double> &residuals_, // The resulting inlier set
+		double threshold_, // The threshold_ for the inlier-outlier decision
+		std::vector<size_t> &inliers_, // The resulting inlier set
+		std::vector<double> &weights_, // The resulting inlier set
+		const gcransac::neighborhood::GridNeighborhoodGraph *neighborhood_graph_)
+		{
+			const int &point_number = points_.rows;
+
+			for (auto point_idx = 0; point_idx < point_number; ++point_idx)
+			{
+				if(residuals_[point_idx]>threshold_) continue;
+
+
+				inliers_.push_back(point_idx);
+
+				int neighbor_positive_cnt=0, neighbor_negetive_cnt=0;
+				for (const size_t &actual_neighbor_idx : neighborhood_graph_->getNeighbors(point_idx))
+				{
+					if (actual_neighbor_idx == point_idx || actual_neighbor_idx < 0)
+						continue;
+
+						if(residuals_[actual_neighbor_idx]>threshold_)
+						{
+							neighbor_negetive_cnt++;
+						}
+						else
+						{
+							neighbor_positive_cnt++;
+						}
+				}
+
+				if(neighbor_negetive_cnt+neighbor_positive_cnt)
+				{
+					weights_.push_back((neighbor_positive_cnt+1.0)/(neighbor_negetive_cnt+neighbor_positive_cnt+1.0));
+				}
+				else
+				{
+					weights_.push_back(0.6);
+				}
+
+			}
+		}
 
 // Returns a labeling w.r.t. the current model and point set using graph-cut
 template <class DatumType, class ModelEstimator>
@@ -270,7 +321,7 @@ void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // 
 			distance_per_threshold.reserve(point_number);
 			double tmp_squared_distance,
 				tmp_energy;
-			const double squared_truncated_threshold = threshold_/2;
+			const double squared_truncated_threshold = threshold_;
 			const double one_minus_lambda = 1.0 - lambda_;
 
 			// Estimate the vertex capacities
@@ -290,6 +341,39 @@ void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // 
 					problem_graph->add_term1(i, one_minus_lambda * tmp_energy, 0);
 				else
 					problem_graph->add_term1(i, 0, one_minus_lambda * (1 - tmp_energy));
+			}
+
+			for (auto point_idx = 0; point_idx < point_number; ++point_idx)
+			{
+				float energy1 = distance_per_threshold[point_idx]; // Truncated quadratic cost
+				if(energy1>0.9999) continue;
+
+				// Iterate through  all neighbors
+				bool isBad = false;
+				for (const size_t &actual_neighbor_idx : neighborhood_graph_->getNeighbors(point_idx))
+				{
+
+					if (actual_neighbor_idx == point_idx || actual_neighbor_idx < 0)
+						continue;
+
+					float energy2 = distance_per_threshold[actual_neighbor_idx]; // Truncated quadratic cost
+					if(abs(energy2-energy1)>0.3) {
+						isBad =true; break;
+					}
+				}
+
+				if(isBad==false) continue;
+
+				printf("%.3f: ", energy1);
+				for (const size_t &actual_neighbor_idx : neighborhood_graph_->getNeighbors(point_idx))
+				{
+					if (actual_neighbor_idx == point_idx || actual_neighbor_idx < 0)
+						continue;
+
+					float energy2 = distance_per_threshold[actual_neighbor_idx]; // Truncated quadratic cost
+					printf("%.3f ", energy2);
+				}
+				printf("\n");
 			}
 
 			std::vector<std::vector<int>> used_edges(point_number, std::vector<int>(point_number, 0));
@@ -329,15 +413,22 @@ void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // 
 						if (e00 + e11 > e01_plus_e10)
 							printf("Non-submodular expansion term detected; smooth costs must be a metric for expansion\n");
 
-						problem_graph->add_term2(point_idx, // The current point's index
+						// problem_graph->add_term2(point_idx, // The current point's index
+						// 	actual_neighbor_idx, // The current neighbor's index
+						// 	e00 * lambda_,
+						// 	lambda_, // = e01 * lambda
+						// 	lambda_, // = e10 * lambda
+						// 	e11 * lambda_);
+													problem_graph->add_term2(point_idx, // The current point's index
 							actual_neighbor_idx, // The current neighbor's index
-							e00 * lambda_,
+							0 * lambda_,
 							lambda_, // = e01 * lambda
 							lambda_, // = e10 * lambda
-							e11 * lambda_);
+							0 * lambda_);
 					}
 				}
 			}
+
 
 			// Run the standard st-graph-cut algorithm
 			problem_graph->minimize();
@@ -1155,40 +1246,47 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// }
 
 	// gragh-cut labeling
-	std::vector<bool> inliers_labels;
-	double energy;
-	labeling(points_, 0, model_, estimator_, 0.95, 
-		interrupting_threshold, inliers_labels, energy, neighborhood_graph_);
+	// std::vector<bool> inliers_labels;
+	// double energy;
+	// labeling(points_, 0, model_, estimator_, 0.975, 
+	// 	interrupting_threshold, inliers_labels, energy, neighborhood_graph_);
 
 	// Points used in the weighted least-squares fitting
-	std::vector<size_t> inliers;
-	std::vector<double> local_weights;
-	const auto &inlier_limit = sample_size*2;
-  	std::unique_ptr<size_t[]> current_sample(new size_t[inlier_limit]);
-	for (int point_idx = 0; point_idx < point_number; ++point_idx)
-	{
-		// local_weights[point_idx] = 0;
+	// std::vector<size_t> inliers;
+	// std::vector<double> local_weights;
+	// const auto &inlier_limit = sample_size*2;
+  	// std::unique_ptr<size_t[]> current_sample(new size_t[inlier_limit]);
+	// for (int point_idx = 0; point_idx < point_number; ++point_idx)
+	// {
+	// 	if(residuals_init[point_idx] < this->maximum_threshold)
+	// 	{
+	// 		inliers.push_back(point_idx);
 
-		if(residuals_init[point_idx] < this->maximum_threshold)
-		{
-			inliers.push_back(point_idx);
+	// 		if(inliers_labels[point_idx])
+	// 		{
+	// 			local_weights.push_back(1.0);
+	// 		}
+	// 		else
+	// 		{
+	// 			local_weights.push_back(0.0);
+	// 		}
+	// 	}
+	// }
 
-			if(inliers_labels[point_idx])
-			{
-				local_weights.push_back(1.0);
-			}
-			else
-			{
-				local_weights.push_back(0.2);
-			}
-		}
-	}
+		// 
+		std::vector<size_t> inliers;
+		std::vector<double> local_weights;
+		labeling(points_, residuals_init, 
+		interrupting_threshold, inliers, 
+		local_weights, neighborhood_graph_);
 
-	for(int i=0; i<local_weights.size(); i++)
-	{
-		printf("%.2f %.2f|| ", residuals_init[inliers[i]], local_weights[i]);
-	}		
-	printf("\n");
+	// for(int i=0; i<local_weights.size(); i++)
+	// {
+	// 	if(local_weights[i]<0.8)
+	// 	printf("%.2f %.2f|| ", residuals_init[inliers[i]], local_weights[i]);
+	// }		
+	// printf("\n");
+
 	// printf("%d %d \n", inliers.size(), local_weights.size());
 
 	// Initialize the polished model with the initial one

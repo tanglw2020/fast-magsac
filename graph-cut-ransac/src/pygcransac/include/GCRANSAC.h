@@ -708,15 +708,30 @@ namespace gcransac
 				// The inlier set will contain the points closer than the threshold and
 				// their neighbors depending on the weight of the spatial coherence term.
 				labeling(
-					points_, // The input points
-					statistics.neighbor_number, // The number of neighbors, i.e. the edge number of the graph 
-					neighbours, // The neighborhood graph
-					best_model, // The best model parameters
-					estimator_, // The model estimator
+					points_,                    // The input points
+					statistics.neighbor_number, // The number of neighbors, i.e. the edge number of the graph
+					neighbours,                 // The neighborhood graph
+					best_model,                 // The best model parameters
+					estimator_,                 // The model estimator
 					settings.spatial_coherence_weight, // The weight of the spatial coherence term
-					settings.threshold, // The inlier-outlier threshold
-					inliers, // The selected inliers
-					energy); // The energy after the procedure
+					settings.threshold,                // The inlier-outlier threshold
+					inliers,                           // The selected inliers
+					energy);                           // The energy after the procedure
+
+				// Estimate the vertex capacities
+				// tmp_inliers.clear();
+				// const double squared_truncated_threshold = settings.threshold;
+				// for (size_t i = 0; i < point_number; ++i) {
+				// // Calculating the point-to-model squared residual
+				// double tmp_squared_distance = estimator_.squaredResidual(points_.row(i), best_model.descriptor);
+
+				// // Adding the unary energy to the graph
+				// if (tmp_squared_distance <= squared_truncated_threshold)
+				// tmp_inliers.push_back(i);
+				// }
+
+				// printf("%d %d\n", inliers.size(), tmp_inliers.size());
+				// tmp_inliers.clear();
 			}
 			else
 			{
@@ -836,7 +851,7 @@ namespace gcransac
 		distance_per_threshold.reserve(point_number);
 		double tmp_squared_distance,
 			tmp_energy;
-		const double squared_truncated_threshold = threshold_ * threshold_ * 9 / 4;
+		const double squared_truncated_threshold = threshold_;
 		const double one_minus_lambda = 1.0 - lambda_;
 
 		// Estimate the vertex capacities
