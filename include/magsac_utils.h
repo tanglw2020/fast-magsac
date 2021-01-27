@@ -14,6 +14,17 @@
 /**************************************************
 Declaration
 **************************************************/
+void readPairGT(
+	const std::string& dataset_,
+	const std::string& scene_,
+	std::vector<std::vector<double>>& pair_gt_list_);
+
+void readPutativePoints(
+	const std::string& dataset_,
+	const std::string& scene_,
+	int index,
+	cv::Mat& points_);
+
 void readAnnotatedPoints(
 	const std::string& path_,
 	cv::Mat& points_,
@@ -330,3 +341,21 @@ void showImage(const cv::Mat &image_,
 	if (wait_)
 		cv::waitKey(0);
 }
+
+
+void readPairGT(
+	const std::string& dataset_,
+	const std::string& scene_,
+	std::vector<std::vector<double>>& pair_gt_list_)
+	{
+		printf("readPairGT %s  %s \n", dataset_.c_str(), scene_.c_str);
+	}
+
+void readPutativePoints(
+	const std::string& dataset_,
+	const std::string& scene_,
+	int index,
+	cv::Mat& points_)
+	{
+
+	}

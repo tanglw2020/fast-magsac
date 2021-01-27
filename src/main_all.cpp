@@ -123,6 +123,16 @@ void magsacFundamentalMatrixFitting(double ransac_confidence_,
 									double drawing_threshold_ = 2,
 									const int repeat_number_ = 10);
 
+// A method applying MAGSAC for fundamental matrix estimation to one of the
+// built-in scenes
+void magsacFundamentalMatrixFittingHugeScene(double ransac_confidence_,
+									double maximum_threshold_,
+									std::string dataset_,
+									std::string test_scene_,
+									bool draw_results_ = false,
+									double drawing_threshold_ = 2,
+									const int repeat_number_ = 10);
+
 // A method applying MAGSAC for essential matrix estimation to one of the
 // built-in scenes
 void magsacEssentialMatrixFitting(double ransac_confidence_,
@@ -223,15 +233,19 @@ int main(int argc, const char *argv[])
 
 	// =============fundamental ==================
 	// Run fundamental matrix estimation on the kusvod2 dataset
-	runTest(SceneType::FundamentalMatrixScene, Dataset::kusvod2,
-	ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
+	// runTest(SceneType::FundamentalMatrixScene, Dataset::kusvod2,
+	// ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
 
-	// Run fundamental matrix estimation on the AdelaideRMF dataset
-	runTest(SceneType::FundamentalMatrixScene, Dataset::adelaidermf,
-	ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
+	// // Run fundamental matrix estimation on the AdelaideRMF dataset
+	// runTest(SceneType::FundamentalMatrixScene, Dataset::adelaidermf,
+	// ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
 
-	// Run fundamental matrix estimation on the Multi-H dataset
-	runTest(SceneType::FundamentalMatrixScene, Dataset::multih,
+	// // Run fundamental matrix estimation on the Multi-H dataset
+	// runTest(SceneType::FundamentalMatrixScene, Dataset::multih,
+	// ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
+
+	// =============fundamental Huge scene==================
+	runTest(SceneType::FundamentalMatrixHugeScene, Dataset::tum,
 	ransac_confidence, draw_results, drawing_threshold_fundamental_matrix);
 
 	// // Run essential matrix estimation on a scene from the strecha dataset
@@ -269,7 +283,6 @@ void runTest(
 			   problem_name.c_str(), scene.c_str(), dataset_name.c_str());
 		printf("--------------------------------------------------------------\n");
 
-		const int repeat = 20;
 		// Run this if the task is homography estimation
 		if (scene_type_ == SceneType::HomographyScene)
 		{
@@ -284,18 +297,6 @@ void runTest(
 				false, 1);			// A flag to apply the MAGSAC post-processing to the
 									// OpenCV's output
 			printf("-------------------------------\n");
-
-			// Apply MAGSAC with maximum threshold set to a fairly high value
-			// printf("\n2. Running MAGSAC with fairly high maximum threshold (%f
-			// px)\n", 50.0);
-
-			// magsacHomographyFitting(
-			//     ransac_confidence_,
-			//     10.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5);  // The inlier threshold for visualization.
-			// printf("--------------------------------\n");
 			
 			magsacHomographyFitting(
 			    ransac_confidence_,
@@ -305,14 +306,6 @@ void runTest(
 			    2.5,20);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			// fastMagsacHomographyFitting(
-			//     ransac_confidence_,
-			//     10.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5, 10);  // The inlier threshold for visualization.
-			// printf("--------------------------------\n");
-
 			fastMagsacHomographyFitting(
 			    ransac_confidence_,
 			    20.0,  // The maximum sigma value allowed in MAGSAC
@@ -321,26 +314,7 @@ void runTest(
 			    2.5, 20);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			// fastMagsacHomographyFitting(
-			//     ransac_confidence_,
-			//     50.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5, 10);  // The inlier threshold for visualization.
-			// printf("--------------------------------\n");
-
 			// printf("\n3. Running gcransac threshold (%f px)\n", 50.0);
-
-			// gcransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	2.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, false, false, false);
-			// printf("--------------------------------\n");
 
 			// gcransacHomographyFitting(
 			// 	ransac_confidence_, // The confidence required
@@ -363,57 +337,6 @@ void runTest(
 				8,	   // The radius of the neighborhood ball
 				-1, 0.01, true, false, false);
 			printf("--------------------------------\n");
-			// loransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	6.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false);
-			// printf("--------------------------------\n");
-			// loransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	12.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false);
-			// printf("--------------------------------\n");
-			// loransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	24.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false);
-			// printf("--------------------------------\n");
-			// loransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	2.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false);
-
-			// printf("--------------------------------\n");
-
-			// gcransacHomographyFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	2.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.1, true, false, true);
 		}
 		else if (scene_type_ == SceneType::FundamentalMatrixScene)
 		{
@@ -437,21 +360,6 @@ void runTest(
 				draw_results_,		 // A flag to draw and show the results
 				drawing_threshold_, 10); // The inlier threshold for visualization.
 			printf("-------------------------------\n");
-			magsacFundamentalMatrixFitting(
-				ransac_confidence_,	 // The required confidence in the results
-				8.0,				 // The maximum sigma value allowed in MAGSAC
-				scene,				 // The scene type
-				draw_results_,		 // A flag to draw and show the results
-				drawing_threshold_, 10); // The inlier threshold for visualization.
-			printf("-------------------------------\n");
-
-			fastMagsacFundamentalMatrixFitting(
-			    ransac_confidence_,
-			    5.0,  // The maximum sigma value allowed in MAGSAC
-			    scene, // The scene type
-			    false, // A flag to draw and show the results
-			    2.5, 10);  // The inlier threshold for visualization.
-			printf("--------------------------------\n");
 
 			fastMagsacFundamentalMatrixFitting(
 			    ransac_confidence_,
@@ -467,26 +375,6 @@ void runTest(
 			// 	false,				// A flag determining if the results should be visualized
 			// 	2.5,
 			// 	1.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false, 5);
-			// printf("--------------------------------\n");
-			// loransacFundamentalMatrixFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	3.0,   // The used inlier-outlier threshold
-			// 	0.975, // The weight of the spatial coherence term
-			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false, 5);
-			// printf("--------------------------------\n");
-			// loransacFundamentalMatrixFitting(
-			// 	ransac_confidence_, // The confidence required
-			// 	scene,				// The name of the current test scene
-			// 	false,				// A flag determining if the results should be visualized
-			// 	2.5,
-			// 	5.0,   // The used inlier-outlier threshold
 			// 	0.975, // The weight of the spatial coherence term
 			// 	8,	   // The radius of the neighborhood ball
 			// 	-1, 0.01, true, false, false, 5);
@@ -522,6 +410,19 @@ void runTest(
 			magsacEssentialMatrixFitting(
 				ransac_confidence_,	 // The required confidence in the results
 				5.0,				 // The maximum sigma value allowed in MAGSAC
+				scene,				 // The scene type
+				true,				 // A flag to draw and show the results
+				drawing_threshold_); // The inlier threshold for visualization.
+		}
+		else if(scene_type_ == SceneType::FundamentalMatrixHugeScene)
+		{
+			// Apply MAGSAC with a reasonably set maximum threshold
+			printf("\n2. Running MAGSAC with reasonably set maximum threshold (%f px)\n",
+				5.0);
+			magsacFundamentalMatrixFittingHugeScene(
+				ransac_confidence_,	 // The required confidence in the results
+				5.0,				 // The maximum sigma value allowed in MAGSAC
+				dataset_name,
 				scene,				 // The scene type
 				true,				 // A flag to draw and show the results
 				drawing_threshold_); // The inlier threshold for visualization.
@@ -618,9 +519,7 @@ std::vector<std::string> getAvailableTestScenes(const SceneType scene_type_,
 		switch (dataset_)
 		{
 		case Dataset::tat:
-			return {"Panther", 
-			"Playground", 
-			"Train"};
+			return {"Panther", "Playground", "Train"};
 		case Dataset::tum:
 			return {"rgbd_dataset_freiburg3_large_cabinet", 
 			"rgbd_dataset_freiburg3_long_office_household", 
@@ -811,6 +710,101 @@ void magsacEssentialMatrixFitting(double ransac_confidence_,
 	image1.release();
 	image2.release();
 }
+
+void magsacFundamentalMatrixFittingHugeScene(double ransac_confidence_,
+									double maximum_threshold_,
+									std::string dataset_,
+									std::string test_scene_,
+									bool draw_results_ = false,
+									double drawing_threshold_ = 2,
+									const int repeat_number_ = 10)
+{
+	printf("\tProcessed scene = '%s'.\n", test_scene_.c_str());
+	std::vector<std::vector<double>> pair_gt_list;
+	readPairGT(dataset_, test_scene_, pair_gt_list);
+
+	return;
+
+	cv::Mat points; // The point correspondences, each is of format x1 y1 x2 y2
+	std::vector<double>
+		ground_truth_fm; // The ground truth fm provided in the dataset
+
+	// readAnnotatedPoints("data/fundamental_matrix/" + test_scene_ + "_pts.txt",
+	// 					points, ground_truth_labels);
+
+	// The number of points in the datasets
+	const size_t N = points.rows; 
+	if (N == 0) // If there are no points, return
+	{
+		fprintf(stderr,
+				"A problem occured when loading the annotated points for test "
+				"scene '%s'\n",
+				test_scene_.c_str());
+		return;
+	}
+
+	// magsac::utils::DefaultFundamentalMatrixEstimator estimator(
+	// 	maximum_threshold_);		   // The robust homography estimator class containing
+	// 								   // the function for the fitting and residual
+	// 								   // calculation
+	// gcransac::FundamentalMatrix model; // The estimated model
+
+
+	// for (int repeat_i = 0; repeat_i < repeat_number_; repeat_i++)
+	// {
+	// // Initialize the sampler used for selecting minimal samples
+	// gcransac::sampler::UniformSampler main_sampler(&points);
+
+	// MAGSAC<cv::Mat, magsac::utils::DefaultFundamentalMatrixEstimator> magsac;
+	// magsac.setMaximumThreshold(
+	// 	maximum_threshold_);	   // The maximum noise scale sigma allowed
+	// magsac.setIterationLimit(5000); // Iteration limit to interrupt the cases when
+	// 							   // the algorithm run too long.
+
+	// int iteration_number = 0; // Number of iterations required
+	// ModelScore score;		  // The model score
+
+	// std::chrono::time_point<std::chrono::system_clock> end,
+	// 	start = std::chrono::system_clock::now();
+	// const bool success =
+	// 	magsac.run(points,			   // The data points
+	// 			   ransac_confidence_, // The required confidence in the results
+	// 			   estimator,		   // The used estimator
+	// 			   main_sampler,	   // The sampler used for selecting minimal samples
+	// 								   // in each iteration
+	// 			   model,			   // The estimated model
+	// 			   iteration_number,   // The number of iterations
+	// 			   score);			   // The score of the estimated model
+	// end = std::chrono::system_clock::now();
+
+	// std::chrono::duration<double> elapsed_seconds = end - start;
+
+	// // printf(
+	// // 	"\tActual number of iterations drawn by MAGSAC at %.2f confidence: %d\n",
+	// // 	ransac_confidence_, iteration_number);
+	// // printf("\tElapsed time: %f secs\n", elapsed_seconds.count());
+
+	// if (!success)
+	// {
+	// 	printf("No reasonable model has been found.\n");
+	// 	return;
+	// }
+
+	// // Compute the RMSE given the ground truth inliers
+	// double rmse = 0, error;
+	// // for (const auto &inlier_idx : ground_truth_inliers)
+	// // 	rmse += estimator.squaredResidual(points.row(inlier_idx), model);
+	// // rmse = sqrt(rmse / static_cast<double>(inlier_number));
+	// // printf("\tRMSE error: %f px\n", rmse);
+
+	// // Get the statistics of the results
+	// const gcransac::utils::RANSACStatistics &statistics =
+	// 	magsac.getRansacStatistics();
+
+	// printf("magsac: %0.5fs %d  %.5fpx  %d\n", elapsed_seconds.count(),
+	// 		iteration_number, rmse, 
+	// 		static_cast<int>(statistics.accepted_models));	
+}								
 
 void magsacFundamentalMatrixFitting(double ransac_confidence_,
 									double maximum_threshold_,
