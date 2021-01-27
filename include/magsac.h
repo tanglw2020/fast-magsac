@@ -837,14 +837,14 @@ bool MAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	}
 
 	bool is_model_updated = false;
-
-	if (updated && // If the model has been updated
-		estimator_.isValidModel(polished_model,
-			points_,
-			sigma_inliers,
-			&(sigma_inliers[0]),
-			interrupting_threshold,
-			is_model_updated)) // and it is valid
+	// if (updated && // If the model has been updated
+	// 	estimator_.isValidModel(polished_model,
+	// 		points_,
+	// 		sigma_inliers,
+	// 		&(sigma_inliers[0]),
+	// 		interrupting_threshold,
+	// 		is_model_updated)) // and it is valid
+	if (updated) // and it is valid
 	{
 		// Return the refined model
 		refined_model_ = polished_model;

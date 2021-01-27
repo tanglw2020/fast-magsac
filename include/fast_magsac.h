@@ -261,7 +261,6 @@ void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // 
 			{
 				if(residuals_[point_idx]>threshold_) continue;
 
-
 				inliers_.push_back(point_idx);
 
 				int neighbor_positive_cnt=0, neighbor_negetive_cnt=0;
@@ -279,16 +278,43 @@ void FASTMAGSAC<DatumType, ModelEstimator>::labeling(const cv::Mat &points_, // 
 							neighbor_positive_cnt++;
 						}
 				}
+				// if(neighbor_negetive_cnt+neighbor_positive_cnt)
+				// {
+				// 	// if(neighbor_negetive_cnt > neighbor_positive_cnt)
+				// 	// 	weights_.push_back(0.1);
+				// 	// 	else
+				// 	// 	{
+				// 	// 		weights_.push_back(1.0);
+				// 	// 	}
+						
+				// 	// weights_.push_back((neighbor_positive_cnt+1.0)/(neighbor_negetive_cnt+neighbor_positive_cnt+1.0));
+				// 	weights_.push_back(1.0);
+				// }
+				// else
+				// {
+				// 	weights_.push_back(0.2);
+				// }
 
-				if(neighbor_negetive_cnt+neighbor_positive_cnt)
-				{
-					weights_.push_back((neighbor_positive_cnt+1.0)/(neighbor_negetive_cnt+neighbor_positive_cnt+1.0));
-				}
-				else
-				{
-					weights_.push_back(0.6);
-				}
 
+				double neighbor_cnt=1;
+				double avg_residual = residuals_[point_idx];
+				// for (const size_t &actual_neighbor_idx : neighborhood_graph_->getNeighbors(point_idx))
+				// {
+				// 	if (actual_neighbor_idx == point_idx || actual_neighbor_idx < 0)
+				// 		continue;
+
+				// 		if(residuals_[actual_neighbor_idx]>threshold_)
+				// 		{
+				// 			avg_residual += threshold_;
+				// 		}
+				// 		else
+				// 		{
+				// 			avg_residual += residuals_[actual_neighbor_idx];
+				// 		}
+				// 		neighbor_cnt++;
+				// }
+				// avg_residual/= neighbor_cnt;
+				weights_.push_back(getWeightFromRes(avg_residual, threshold_, 2));
 			}
 		}
 
@@ -1052,8 +1078,6 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 	// {
 	// 	// sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], local_inlier_th, weight_type);
 	// 	sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold, weight_type);
-	// 	// local_weights_1[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*0.8, weight_type);
-	// 	// local_weights_2[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*1.5, weight_type);
 	// }
 
 	// Points used in the weighted least-squares fitting
@@ -1326,12 +1350,17 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		{
 
 		double local_score;
+		// getModelQualityPlusPlus(points_,     // All the input points
+		// 						models[0],   // The estimated model
+		// 						estimator_,  // The estimator
+		// 						local_score, // The marginalized score
+		// 						inlier_num, best_score_.score, 0,
+		// 						refine_residuals); // The score of the previous so-far-the-best model
 		getModelQualityPlusPlus(points_,     // All the input points
 								models[0],   // The estimated model
 								estimator_,  // The estimator
 								local_score, // The marginalized score
-								inlier_num, best_score_.score, 0,
-								refine_residuals); // The score of the previous so-far-the-best model
+								best_score_.score); 
 
 			if (local_score > max_score) {
 				updated = true;
@@ -1346,7 +1375,7 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 		}
 	}
 
-        if(updated)
+    if(updated)
 	{
 		score_.score = max_score;
 		return true;
@@ -1452,9 +1481,6 @@ bool FASTMAGSAC<DatumType, ModelEstimator>::sigmaConsensusPlusPlus(
 // 		for (int point_idx = 0; point_idx < point_number; ++point_idx)
 // 		{
 // 			// sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], local_inlier_th, weight_type);
-// 			sum_weights_[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold, weight_type);
-// 			// local_weights_1[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*0.8, weight_type);
-// 			// local_weights_2[point_idx] = getWeightFromRes(resdual_all[point_idx], interrupting_threshold*1.5, weight_type);
 // 		}
 
 
@@ -1702,8 +1728,8 @@ void FASTMAGSAC<DatumType, ModelEstimator>::getModelQualityPlusPlus(
 
 		// Break the validation if there is no chance of being better than the previous
 		// so-far-the-best model.
-		if (previous_best_loss < total_loss)
-			break;
+		// if (previous_best_loss < total_loss)
+		// 	break;
 	}
 
 	// Calculate the score of the model from the total loss
@@ -1917,7 +1943,8 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 			return 0;
 	case 2:
 		if(residual<threshold)
-			return 0.8+((exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2)));
+			return ((exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2)));
+			// return ((exp(-residual*residual/this->maximum_threshold/this->maximum_threshold/2))) - exp(-1.0);
 		else
 			return 0;
 	case 3:
@@ -1946,6 +1973,67 @@ double FASTMAGSAC<DatumType, ModelEstimator>::getWeightFromRes(double residual, 
 			return 0.8+((exp(-residual/this->maximum_threshold)));
 		else
 			return 0;
+	case 6:
+	{
+		// The degrees of freedom of the data from which the model is estimated.
+		// E.g., for models coming from point correspondences (x1,y1,x2,y2), it is 4.
+		constexpr size_t degrees_of_freedom = ModelEstimator::getDegreesOfFreedom();
+		// A 0.99 quantile of the Chi^2-distribution to convert sigma values to residuals
+		constexpr double k = ModelEstimator::getSigmaQuantile();
+		// A multiplier to convert residual values to sigmas
+		constexpr double threshold_to_sigma_multiplier = 1.0 / k;
+		// Calculating k^2 / 2 which will be used for the estimation and, 
+		// due to being constant, it is better to calculate it a priori.
+		constexpr double squared_k_per_2 = k * k / 2.0;
+		// Calculating (DoF - 1) / 2 which will be used for the estimation and, 
+		// due to being constant, it is better to calculate it a priori.
+		constexpr double dof_minus_one_per_two = (degrees_of_freedom - 1.0) / 2.0;
+		// TODO: check
+		constexpr double C = ModelEstimator::getC();
+		// due to being constant, it is better to calculate it a priori.
+		static const double two_ad_dof = std::pow(2.0, dof_minus_one_per_two);
+		// Calculating C * 2^(DoF - 1) which will be used for the estimation and, 
+		// due to being constant, it is better to calculate it a priori.
+		static const double C_times_two_ad_dof = C * two_ad_dof;
+		// Calculating the gamma value of (DoF - 1) / 2 which will be used for the estimation and, 
+		// due to being constant, it is better to calculate it a priori.
+		static const double gamma_value = tgamma(dof_minus_one_per_two);
+		// Calculating the upper incomplete gamma value of (DoF - 1) / 2 with k^2 / 2.
+		constexpr double gamma_k = ModelEstimator::getUpperIncompleteGammaOfK();
+		// Calculating the lower incomplete gamma value of (DoF - 1) / 2 which will be used for the estimation and, 
+		// due to being constant, it is better to calculate it a priori.
+		static const double gamma_difference = gamma_value - gamma_k;
+		// The manually set maximum inlier-outlier threshold
+		double current_maximum_sigma = this->maximum_threshold;
+		// Calculate 2 * \sigma_{max}^2 a priori
+		const double squared_sigma_max_2 = current_maximum_sigma * current_maximum_sigma * 2.0;
+		// Divide C * 2^(DoF - 1) by \sigma_{max} a priori
+		const double one_over_sigma = C_times_two_ad_dof / current_maximum_sigma;
+		// Calculate the weight of a point with 0 residual (i.e., fitting perfectly) a priori
+		const double weight_zero = one_over_sigma * gamma_difference;
+		
+		// The weight
+		double weight = 0.0;
+		// If the residual is ~0, the point fits perfectly and it is handled differently
+		if (residual < std::numeric_limits<double>::epsilon())
+			weight = weight_zero;
+		else if(residual<threshold)
+		{
+			// Calculate the squared residual
+			const double squared_residual = residual * residual;
+			// Get the position of the gamma value in the lookup table
+			size_t x = round(precision_of_stored_gammas * squared_residual / squared_sigma_max_2);
+			// Put the index of the point into the vector of points used for the least squares fitting
+
+			// If the sought gamma value is not stored in the lookup, return the closest element
+			if (stored_gamma_number < x)
+				x = stored_gamma_number;
+
+			// Calculate the weight of the point
+			weight = one_over_sigma * (stored_gamma_values[x] - gamma_k);
+		}
+		return weight;
+	}
 		
 	default:
 		return 0;

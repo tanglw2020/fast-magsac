@@ -35,7 +35,8 @@ enum SceneType
 {
 	FundamentalMatrixScene,
 	HomographyScene,
-	EssentialMatrixScene
+	EssentialMatrixScene, 
+	FundamentalMatrixHugeScene
 };
 enum Dataset
 {
@@ -44,7 +45,11 @@ enum Dataset
 	homogr,
 	adelaidermf,
 	multih,
-	strecha
+	strecha,
+	cpc,
+	tum,
+	tat,
+	kitti
 };
 
 // A method applying gcransac for Homography estimation to one of the built-in
@@ -430,24 +435,31 @@ void runTest(
 				5.0,				 // The maximum sigma value allowed in MAGSAC
 				scene,				 // The scene type
 				draw_results_,		 // A flag to draw and show the results
-				drawing_threshold_, 2); // The inlier threshold for visualization.
+				drawing_threshold_, 10); // The inlier threshold for visualization.
+			printf("-------------------------------\n");
+			magsacFundamentalMatrixFitting(
+				ransac_confidence_,	 // The required confidence in the results
+				8.0,				 // The maximum sigma value allowed in MAGSAC
+				scene,				 // The scene type
+				draw_results_,		 // A flag to draw and show the results
+				drawing_threshold_, 10); // The inlier threshold for visualization.
 			printf("-------------------------------\n");
 
 			fastMagsacFundamentalMatrixFitting(
 			    ransac_confidence_,
-			    6.0,  // The maximum sigma value allowed in MAGSAC
+			    5.0,  // The maximum sigma value allowed in MAGSAC
 			    scene, // The scene type
 			    false, // A flag to draw and show the results
-			    2.5, 5);  // The inlier threshold for visualization.
+			    2.5, 10);  // The inlier threshold for visualization.
 			printf("--------------------------------\n");
 
-			// fastMagsacFundamentalMatrixFitting(
-			//     ransac_confidence_,
-			//     8.0,  // The maximum sigma value allowed in MAGSAC
-			//     scene, // The scene type
-			//     false, // A flag to draw and show the results
-			//     2.5, 5);  // The inlier threshold for visualization.
-			// printf("--------------------------------\n");
+			fastMagsacFundamentalMatrixFitting(
+			    ransac_confidence_,
+			    8.0,  // The maximum sigma value allowed in MAGSAC
+			    scene, // The scene type
+			    false, // A flag to draw and show the results
+			    2.5, 10);  // The inlier threshold for visualization.
+			printf("--------------------------------\n");
 			
 			// loransacFundamentalMatrixFitting(
 			// 	ransac_confidence_, // The confidence required
@@ -457,7 +469,27 @@ void runTest(
 			// 	1.0,   // The used inlier-outlier threshold
 			// 	0.975, // The weight of the spatial coherence term
 			// 	8,	   // The radius of the neighborhood ball
-			// 	-1, 0.01, true, false, false, 2);
+			// 	-1, 0.01, true, false, false, 5);
+			// printf("--------------------------------\n");
+			// loransacFundamentalMatrixFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	3.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false, 5);
+			// printf("--------------------------------\n");
+			// loransacFundamentalMatrixFitting(
+			// 	ransac_confidence_, // The confidence required
+			// 	scene,				// The name of the current test scene
+			// 	false,				// A flag determining if the results should be visualized
+			// 	2.5,
+			// 	5.0,   // The used inlier-outlier threshold
+			// 	0.975, // The weight of the spatial coherence term
+			// 	8,	   // The radius of the neighborhood ball
+			// 	-1, 0.01, true, false, false, 5);
 			// printf("--------------------------------\n");
 
 			// gcransacFundamentalMatrixFitting(
@@ -516,6 +548,14 @@ std::string dataset2str(Dataset dataset_)
 		return "adelaidermf";
 	case Dataset::multih:
 		return "multih";
+	case Dataset::cpc:
+		return "CPC";
+	case Dataset::tum:
+		return "TUM";
+	case Dataset::kitti:
+		return "KITTI";
+	case Dataset::tat:
+		return "Tanks_and_Temples";
 	default:
 		return "unknown";
 	}
@@ -571,6 +611,24 @@ std::vector<std::string> getAvailableTestScenes(const SceneType scene_type_,
 					"unionhouse"};
 		case Dataset::multih:
 			return {"boxesandbooks", "glasscaseb", "stairs"};
+		default:
+			return std::vector<std::string>();
+		}
+	case SceneType::FundamentalMatrixHugeScene:
+		switch (dataset_)
+		{
+		case Dataset::tat:
+			return {"Panther", 
+			"Playground", 
+			"Train"};
+		case Dataset::tum:
+			return {"rgbd_dataset_freiburg3_large_cabinet", 
+			"rgbd_dataset_freiburg3_long_office_household", 
+			"rgbd_dataset_freiburg3_teddy"};
+		case Dataset::kitti:
+			return {"06","07","08","09","10"};
+		case Dataset::cpc:
+			return {"Roman_Forum"};
 		default:
 			return std::vector<std::string>();
 		}
@@ -823,7 +881,7 @@ void magsacFundamentalMatrixFitting(double ransac_confidence_,
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (refined_inliers.size() > ground_truth_inliers.size())
-		refined_inliers.swap(ground_truth_inliers);
+		;//refined_inliers.swap(ground_truth_inliers);
 	const size_t inlier_number = static_cast<double>(ground_truth_inliers.size());
 
 	// printf("\tEstimated model = '%s'.\n", "fundamental matrix");
@@ -1007,7 +1065,7 @@ void magsacHomographyFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
@@ -1205,7 +1263,7 @@ void fastMagsacHomographyFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
@@ -1405,7 +1463,7 @@ void fastMagsacFundamentalMatrixFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
@@ -1420,7 +1478,7 @@ void fastMagsacFundamentalMatrixFitting(
 
 	for (int repeat_i = 0; repeat_i < repeat_number_; repeat_i++)
 	{
-		int cell_number_in_neighborhood_graph_ = 12;
+		int cell_number_in_neighborhood_graph_ = 6;
 		gcransac::neighborhood::GridNeighborhoodGraph neighborhood(
 			&points,
 			image1.cols / static_cast<double>(cell_number_in_neighborhood_graph_),
@@ -1623,7 +1681,7 @@ void opencvHomographyFitting(double ransac_confidence_, double threshold_,
 
 	// If there are more inliers in the refined labeling, use them.
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 
 	// The number of reference inliers
 	const size_t reference_inlier_number = ground_truth_inliers.size();
@@ -1806,7 +1864,7 @@ void opencvFundamentalMatrixFitting(double ransac_confidence_,
 	// rank-two constraint leads to a model which selects fewer inliers than the
 	// original one.
 	if (refined_inliers.size() > ground_truth_inliers.size())
-		refined_inliers.swap(ground_truth_inliers);
+		;//refined_inliers.swap(ground_truth_inliers);
 
 	// Number of inliers in the reference labeling
 	const size_t reference_inlier_number = ground_truth_inliers.size();
@@ -2120,7 +2178,7 @@ void gcransacHomographyFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
 	// printf("\tEstimated model = 'homography'.\n");
@@ -2394,7 +2452,7 @@ void gcransacFundamentalMatrixFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
 	// printf("\tEstimated model = 'homography'.\n");
@@ -2668,7 +2726,7 @@ void loransacHomographyFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
 	// printf("\tEstimated model = 'homography'.\n");
@@ -2942,7 +3000,7 @@ void loransacFundamentalMatrixFitting(
 						 getSubsetFromLabeling(ground_truth_labels, 1),
 					 refined_inliers = getSubsetFromLabeling(refined_labels, 1);
 	if (ground_truth_inliers.size() < refined_inliers.size())
-		ground_truth_inliers.swap(refined_inliers);
+		;//ground_truth_inliers.swap(refined_inliers);
 	const size_t reference_inlier_number = ground_truth_inliers.size();
 
 	// printf("\tEstimated model = 'homography'.\n");
